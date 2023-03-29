@@ -1,0 +1,11 @@
+[package]
+name = "dbtonic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "3.0.0"
+glob = "0.3.0"
+regex = "1.5.4"
+ansi_term = "0.12.1"
+sqlparser = "0.32.0"
