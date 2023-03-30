@@ -2,7 +2,9 @@ use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 use std::fs;
 
-pub fn parse_sql_file(file_path: &str) -> Result<Vec<sqlparser::ast::Statement>, String> {
+pub fn parse_sql_file(sql: &str) {
+    // -> Result<Vec<sqlparser::ast::Statement>, String>
+
     // NOTES:
     // 1. We've used map_err() to convert errors from fs::read_to_string() 
     //    and Parser::parse_sql() into Strings, which can be returned as errors.
@@ -11,9 +13,11 @@ pub fn parse_sql_file(file_path: &str) -> Result<Vec<sqlparser::ast::Statement>,
     //    a reference to a Vec<Statement>. This simplifies the return type and avoids 
     //    the need for lifetime annotations.
 
-    let sql = fs::read_to_string(file_path).map_err(|e| e.to_string())?;
-    
+
     let dialect = GenericDialect {};
-    let ast = Parser::parse_sql(&dialect, &sql).map_err(|e| e.to_string())?;
-    Ok(ast)
+    let ast = Parser::parse_sql(&dialect, &sql).map_err(|e| e.to_string());
+    println!("{:?}", ast);
+    println!("testing string");
+    // Ok(ast)
+
 }
