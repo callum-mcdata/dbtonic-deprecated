@@ -15,7 +15,7 @@ fn main() {
             .about("Says hello to the user"))
         .subcommand(SubCommand::with_name("evaluate")
             .about("Finds and evaluates a SQL file")
-            .arg(Arg::with_name("select")
+            .arg(Arg::with_name("model")
                 .long("model")
                 .value_name("FILE")
                 .help("Defines the SQL model to evaluate")

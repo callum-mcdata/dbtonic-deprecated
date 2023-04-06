@@ -8,5 +8,12 @@ clap = "3.0.0"
 glob = "0.3.0"
 regex = "1.5.4"
 ansi_term = "0.12.1"
-sqlparser = "0.32.0"
 colored = "2.0.0"
+rayon = "1.5.1"
+tree-sitter = "0.19"
+tree-sitter-jinja2 = { git = "https://github.com/dbt-labs/tree-sitter-jinja2", tag = "v0.1.0" }
+thiserror = "1.0.25"
+
+[dev-dependencies]
+quickcheck = "1"
+quickcheck_macros = "1"
