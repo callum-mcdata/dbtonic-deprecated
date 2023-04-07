@@ -39,8 +39,8 @@ pub enum TypeError {
     ArgumentMismatch { expected: Vec<usize>, found: usize },
     #[error("Expected {}. Got {}.", .expected.to_string(), .got.to_string())]
     TypeMismatch { expected: ExprType, got: ExprType },
-    // #[error("Found unrecognized function named {0}.")]
-    // UnrecognizedFunction(String),
+    #[error("Found unrecognized function named {0}.")]
+    UnrecognizedFunction(String),
     #[error("Found unexpected keyword argument {0}.")]
     UnexpectedKwarg(String),
     #[error("Excluded keyword argument found: {0}.")]
@@ -125,10 +125,10 @@ mod tests {
                 }),
                 "Type Error: Expected kwarg. Got string.",
             ),
-            // (
-            //     TypeE(UnrecognizedFunction("refsourceconfig".to_owned())),
-            //     "Type Error: Found unrecognized function named refsourceconfig.",
-            // ),
+            (
+                TypeE(UnrecognizedFunction("refsourceconfig".to_owned())),
+                "Type Error: Found unrecognized function named refsourceconfig.",
+            ),
             (
                 TypeE(UnexpectedKwarg("boop".to_owned())),
                 "Type Error: Found unexpected keyword argument boop.",

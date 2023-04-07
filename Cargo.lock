@@ -448,7 +448,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-jinja2"
 version = "0.1.0"
-source = "git+https://github.com/dbt-labs/tree-sitter-jinja2?tag=v0.1.0#52da7b0b1480b23381ea84cf5ea3bf058dd6d8c4"
+source = "git+https://github.com/dbt-labs/tree-sitter-jinja2?branch=SEMANTIC-222_scoped_functions_and_integers#af5eebdebc2792729d09d310425916796be35389"
 dependencies = [
  "cc",
  "tree-sitter",

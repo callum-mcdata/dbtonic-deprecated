@@ -54,8 +54,6 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
 
     let ast = extract_from_source(&sql);
 
-    // println!("{}: {:?}",model_name,ast);
-
     let mut message_list = vec![];
 
     match ast {

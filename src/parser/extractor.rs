@@ -1,4 +1,4 @@
-use crate::parser::exceptions::{ParseError, SourceError, TypeError};
+use crate::{parser::exceptions::{ParseError, SourceError, TypeError}, utils::string_edits::remove_parentheses_content};
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 use rayon::prelude::*;
@@ -14,7 +14,7 @@ pub struct Extraction {
     pub sources: Vec<(String, String)>,
     pub configs: Vec<(String, ConfigVal)>,
     pub vars: Vec<String>,
-    pub other: Vec<String>,
+    pub macros: Vec<(String, String)>,
 }
 
 #[cfg(test)]
@@ -25,7 +25,7 @@ impl Arbitrary for Extraction {
             sources: Vec::<(String, String)>::arbitrary(g),
             configs: Vec::<(String, ConfigVal)>::arbitrary(g),
             vars: Vec::<String>::arbitrary(g),
-            other: Vec::<String>::arbitrary(g),
+            macros: Vec::<(String, String)>::arbitrary(g),
         }
     }
 
@@ -38,7 +38,7 @@ impl Arbitrary for Extraction {
                     sources: self.sources.clone(),
                     configs: shrunk_config,
                     vars: self.vars.clone(),
-                    other: self.other.clone(),
+                    macros: self.macros.clone(),
                 })
                 .collect(),
             self.refs
@@ -48,7 +48,7 @@ impl Arbitrary for Extraction {
                     sources: self.sources.clone(),
                     configs: self.configs.clone(),
                     vars: self.vars.clone(),
-                    other: self.other.clone(),
+                    macros: self.macros.clone(),
                 })
                 .collect(),
             self.sources
@@ -58,7 +58,7 @@ impl Arbitrary for Extraction {
                     sources: shrunk_sources,
                     configs: self.configs.clone(),
                     vars: self.vars.clone(),
-                    other: self.other.clone(),
+                    macros: self.macros.clone(),
                 })
                 .collect(),
             self.vars
@@ -68,17 +68,17 @@ impl Arbitrary for Extraction {
                     sources: self.sources.clone(),
                     configs: self.configs.clone(),
                     vars: shrunk_vars,
-                    other: self.other.clone(),
+                    macros: self.macros.clone(),
                 })
                 .collect(),
-            self.other
+            self.macros
                 .shrink()
-                .map(|shrunk_other| Extraction {
+                .map(|shrunk_macros| Extraction {
                     refs: self.refs.clone(),
                     sources: self.sources.clone(),
                     configs: self.configs.clone(),
                     vars: self.vars.clone(),
-                    other: shrunk_other,
+                    macros: shrunk_macros,
                 })
                 .collect(),
         ];
@@ -99,7 +99,7 @@ impl Extraction {
             sources: [&self.sources[..], &other.sources[..]].concat(),
             configs: [&self.configs[..], &other.configs[..]].concat(),
             vars: [&self.vars[..], &other.vars[..]].concat(),
-            other: [&self.other[..], &other.other[..]].concat(),
+            macros: [&self.macros[..], &other.macros[..]].concat(),
         }
     }
 
@@ -112,14 +112,14 @@ impl Extraction {
         sources: Option<Vec<(String, String)>>,
         configs: Option<Vec<(String, ConfigVal)>>,
         vars: Option<Vec<String>>,
-        other: Option<Vec<String>>,
+        macros: Option<Vec<(String, String)>>,
     ) -> Extraction {
         Extraction {
             refs: refs.unwrap_or(vec![]),
             sources: sources.unwrap_or(vec![]),
             configs: configs.unwrap_or(vec![]),
             vars: vars.unwrap_or(vec![]),
-            other: other.unwrap_or(vec![]),
+            macros: macros.unwrap_or(vec![]),
         }
     }
 }
@@ -134,6 +134,7 @@ pub enum ExprU {
     DictU(HashMap<String, ExprU>),
     KwargU(String, Box<ExprU>),
     FnCallU(String, Vec<ExprU>),
+    ScopedFnCallU(String, Vec<ExprU>),
 }
 
 // typed ast
@@ -151,7 +152,7 @@ enum ExprT {
     SourceT(String, String),
     ConfigT(Vec<(String, ConfigVal)>),
     VarT(String),
-    OtherT(String),
+    MacroT(String, String),
 }
 
 // wrappers for config return types
@@ -210,6 +211,7 @@ pub enum ExprType {
     List,
     Dict,
     FnCall,
+    ScopedFnCall,
     Root,
     Kwarg,
 }
@@ -222,6 +224,7 @@ impl ToString for ExprType {
             ExprType::List => "list".to_owned(),
             ExprType::Dict => "dict".to_owned(),
             ExprType::FnCall => "fn_call".to_owned(),
+            ExprType::ScopedFnCall => "scoped_fn_call".to_owned(),
             ExprType::Root => "root".to_owned(),
             ExprType::Kwarg => "kwarg".to_owned(),
         }
@@ -236,6 +239,7 @@ impl ExprType {
             ExprU::ListU(..) => ExprType::List,
             ExprU::DictU(..) => ExprType::Dict,
             ExprU::FnCallU(..) => ExprType::FnCall,
+            ExprU::ScopedFnCallU(..) => ExprType::ScopedFnCall,
             ExprU::RootU(..) => ExprType::Root,
             ExprU::KwargU(..) => ExprType::Kwarg,
         }
@@ -299,6 +303,7 @@ fn strip_first_and_last(s: &str) -> String {
 // into the more structured ExprU type. This allows the rust compiler to be much more helpful.
 pub fn to_ast(source: &[u8], node: Node) -> Result<ExprU, SourceError> {
     let kind = node.kind();
+
     match kind {
         "source_file" => {
             let x: Result<Vec<ExprU>, SourceError> = named_children(node)
@@ -364,8 +369,27 @@ pub fn to_ast(source: &[u8], node: Node) -> Result<ExprU, SourceError> {
             Ok(ExprU::FnCallU(name.to_owned(), args))
         }
 
+        "identifier" => match text_from_node(&source, &node) {
+            Ok(s) => Ok(ExprU::StringU(strip_first_and_last(s))),
+            Err(_) => Err(SourceError::TreeSitterError),
+        },
+
+        "scoped_fn_call" => {
+            let module_name_node = child_by_field_name(&node, "fn_scope_name")?;
+            let module_name = text_from_node(source, &module_name_node)?;
+            let module_function_node = child_by_field_name(&node, "scoped_fn_call")?;
+            let module_function = remove_parentheses_content(text_from_node(source, &module_function_node)?);
+
+            let mut args = vec![];
+            args.push(ExprU::StringU(module_name.to_string()));
+            args.push(ExprU::StringU(module_function));
+
+            Ok(ExprU::ScopedFnCallU(format!("{}",module_name), args))
+        }
+
         s => Err(SourceError::UnknownNodeType(s.to_owned())),
     }
+
 }
 
 fn kwargs_last(args: &[ExprU]) -> bool {
@@ -460,6 +484,39 @@ fn type_check(ast: ExprU) -> Result<ExprT, TypeError> {
             }
             Ok(ExprT::ListT(list))
         }
+
+        ExprU::ScopedFnCallU(name, args) => {
+            if !kwargs_last(&args) {
+                return Err(TypeError::KwargsAreNotLast);
+            };
+            match &name[..] {
+                _name => {
+                    let typed_args = args
+                        .into_iter()
+                        .map(|arg| {
+                            match arg {
+                                // macros can only take string literals
+                                ExprU::StringU(s) => Ok(s),
+                                // error on everything that isn't a string literal
+                                not_string => Err(TypeError::TypeMismatch {
+                                    expected: ExprType::String,
+                                    got: ExprType::from(&not_string),
+                                }),
+                            }
+                        })
+                        .collect::<Result<Vec<String>, TypeError>>()?;
+                    if !typed_args.is_empty() {
+                        Ok(ExprT::MacroT(typed_args[0].clone(),typed_args[1].clone()))
+                    } else {
+                        // Handle the case when typed_args is empty, e.g., return an error or a default value
+                        Err(TypeError::UnrecognizedFunction("Some error message".to_owned()))
+                    }
+                }
+            }
+            
+
+        }
+
 
         ExprU::FnCallU(name, args) => {
             if !kwargs_last(&args) {
@@ -608,28 +665,8 @@ fn type_check(ast: ExprU) -> Result<ExprT, TypeError> {
                     Ok(ExprT::ConfigT(typed_args))
                 }
 
-                _name => {
-                    let typed_args = args
-                        .into_iter()
-                        .map(|arg| {
-                            match arg {
-                                // vars can only take string literals
-                                ExprU::StringU(s) => Ok(s),
-                                // error on everything that isn't a string literal
-                                not_string => Err(TypeError::TypeMismatch {
-                                    expected: ExprType::String,
-                                    got: ExprType::from(&not_string),
-                                }),
-                            }
-                        })
-                        .collect::<Result<Vec<String>, TypeError>>()?;
-                    Ok(ExprT::OtherT(
-                        typed_args[0].clone(),
-                    ))
-                }
-
                 // TODO: CHANGE THIS Because it fails on macros
-                // name => Err(TypeError::UnrecognizedFunction(name.to_owned())),
+                name => Err(TypeError::UnrecognizedFunction(name.to_owned())),
             }
         }
     }
@@ -653,7 +690,7 @@ fn extract_from(ast: ExprT) -> Extraction {
         ExprT::SourceT(x, y) => Extraction::populate(None, Some(vec![(x, y)]), None, None, None),
         ExprT::ConfigT(configs) => Extraction::populate(None, None, Some(configs), None, None),
         ExprT::VarT(x) => Extraction::populate(None, None, None, Some(vec![x]), None),
-        ExprT::OtherT(x) => Extraction::populate(None, None, None, None, Some(vec![x])),
+        ExprT::MacroT(x, y) => Extraction::populate(None, None, None, None, Some(vec![(x, y)])),
         // otherwise, there's nothing to extract
         _ => Extraction::new(),
     }
@@ -668,11 +705,9 @@ fn run_tree_sitter(source_bytes: &[u8]) -> Result<Tree, SourceError> {
     let tree = parser
         .parse(source_bytes, None)
         .ok_or(SourceError::ParseFailure)?;
-    // dbg!(&tree.root_node());
     if error_anywhere(&tree.root_node()) {
         // we may want to know what this error is. Could use a different function to walk
         // the tree and collect error information instead of just detecting errors.
-        // dbg!("Error_anywhere was the error location");
         Err(SourceError::TreeSitterError)
     } else {
         Ok(tree)

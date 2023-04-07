@@ -11,8 +11,11 @@ ansi_term = "0.12.1"
 colored = "2.0.0"
 rayon = "1.5.1"
 tree-sitter = "0.19"
-tree-sitter-jinja2 = { git = "https://github.com/dbt-labs/tree-sitter-jinja2", tag = "v0.1.0" }
 thiserror = "1.0.25"
+
+[dependencies.tree-sitter-jinja2]
+git = "https://github.com/dbt-labs/tree-sitter-jinja2"
+branch = "SEMANTIC-222_scoped_functions_and_integers"
 
 [dev-dependencies]
 quickcheck = "1"
