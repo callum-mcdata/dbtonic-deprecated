@@ -4,6 +4,7 @@ mod validation;
 mod cli;
 mod parser;
 mod utils;
+mod rules_engine;
 
 fn main() {
 

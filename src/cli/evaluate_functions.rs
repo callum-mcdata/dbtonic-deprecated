@@ -1,30 +1,10 @@
-use glob::glob;
 use std::path::PathBuf;
 use std::fs;
 use std::collections::HashMap;
-use crate::parser::extractor::{extract_from_source, Extraction};
+use crate::parser::extractor::{extract_from_source};
 use crate::utils::printing::get_model_name;
-
-pub fn get_file_paths(model: Option<&str>) -> Vec<PathBuf> {
-    let pattern = match model {
-        Some(m) => format!("models/**/{}*.sql", m),
-        None => "models/**/*.sql".to_string(),
-    };
-
-    let mut file_paths = vec![];
-
-    for entry in glob(&pattern).expect("Failed to read glob pattern") {
-        if let Ok(path) = entry {
-            file_paths.push(path);
-        }
-    }
-
-    if file_paths.is_empty() {
-        println!("No SQL files found.");
-    }
-
-    return file_paths
-}
+use crate::rules_engine::ast_rules::contains_source_and_ref::check_source_and_ref;
+use crate::rules_engine::ast_rules::contains_multiple_sources::check_multiple_sources;
 
 pub fn evaluate_all_sql_files(file_paths: Vec<PathBuf>) -> HashMap<String, Vec<String>> {
     let mut messages = HashMap::new();
@@ -52,11 +32,17 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
         Err(_) => return None, // Return early if file can't be read
     };
 
-    let ast = extract_from_source(&sql);
+    dbg!(&sql);
+
+    // let model_node = vec![];
 
     let mut message_list = vec![];
+    let mut errors = vec![];
 
-    match ast {
+    let jinja_ast = extract_from_source(&sql);
+
+
+    match jinja_ast {
         Ok(extraction) => {
             if let Some(message) = check_multiple_sources(extraction.clone()) {
                 message_list.push(message);
@@ -69,7 +55,7 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
         Err(e) => {
             // Add your custom error message here
             let error_message = format!("Parsing error: {}", e);
-            message_list.push(error_message);
+            errors.push(error_message);
         }
     }
 
@@ -77,34 +63,6 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
         None
     } else {
         Some((model_name, message_list))
-    }
-
-}
-
-fn check_multiple_sources(ast: Extraction) -> Option<String> {
-    let source_count = ast.sources.len();
-
-    if source_count > 1 {
-        return Some("\u{274C} This model contains multiple {{ source() }} functions. \
-        Only one {{ source() }} function should be used per model.".to_owned())
-    } else {
-        return None
-    }
-
-}
-
-fn check_source_and_ref(ast: Extraction) -> Option<String> {
-    let source_count = ast.sources.len();
-    let ref_count = ast.refs.len();
-
-    if source_count > 1 && ref_count > 1 {
-        return Some("\u{274C} This model contains both {{ source() }} and {{ ref() }} functions. \
-        We highly recommend having a one-to-one relationship between sources and their corresponding staging model, \
-        and not having any other model reading from the source. Those staging models are then the ones \
-        read from by the other downstream models. This allows renaming your columns and doing minor transformation \
-        on your source data only once and being consistent across all the models that will consume the source data.".to_owned())
-    } else {
-        return None
     }
 
 }

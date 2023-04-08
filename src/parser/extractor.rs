@@ -719,7 +719,6 @@ pub fn extract_from_source(source: &str) -> Result<Extraction, ParseError> {
     // convert text to bytes
     let source_bytes = source.as_bytes().to_vec();
 
-    // run tree sitter on source
     let tree = map_err(run_tree_sitter(&source_bytes), ParseError::SourceE)?;
 
     // convert to internal ast
@@ -728,7 +727,7 @@ pub fn extract_from_source(source: &str) -> Result<Extraction, ParseError> {
     // type check ast
     let typed_ast = map_err(type_check(ast), ParseError::TypeE)?;
 
-    // extract
+    // // extract
     Ok(extract_from(typed_ast))
 }
 
