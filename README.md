@@ -18,8 +18,7 @@ If you're finding this repo before I post about it publically, I'd recommend you
 
 If I've announced it publically then the above statement is still true but I've decided that I have enough confidence in its use for experimental use. The actual reason is easy - it's fast! dbt developers deserve great experiences that aren't constrained by the limitations of languages we're most familiar with. We should have access to tools that operate just like any other programming language. 
 
-dbtonic's long term vision is to provide a dbt-first experience 
-
+dbtonic's long term vision is to provide a dbt-first linting experience. **However**, I have a day job at dbt Labs that does not include this area so lets just say development is sporadic!
 
 # The Future
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
@@ -27,10 +26,17 @@ This section contains all my notes on what the future could look like. In the sh
 ## Medium Term
 - Determine a consistent format for the rules engine to operate over
     - Quigley used the model for MF. Should I create somethign similar? A vector where each node contains {AST, raw_sql, & yaml}?
+    - If I want to expand beyond just jinja parsing then I'm going to need to get into SQL parsing. OOF. I guess it is an opportunity to build from the ground up for dbt.
 - Implement all the rules from dbt_project_evaluator
 - Figure out a way for the user to configure those rules. Can I use `ruff` as a baseline here?
 
+## Long Term
+- If I want to expand beyond just jinja parsing then I'm going to need to get into SQL parsing. OOF. I guess it is an opportunity to build from the ground up for dbt.
+    - I'll only want to support Snowflake to begin with because it's what I'm most familiar with. Maybe DuckDB as well for local testing and cause Josh's work in this area is inspiring.
 
+## Longest Term
+- Can I figure out a way to use OpenAI APIs to consistently document columns if a user hasn't? Would be optional
+    - Has potential to get expensive. I'd want to batch the API calls. 
 
 ## Components
 - Need a way to parse the yml and associate it with each node
