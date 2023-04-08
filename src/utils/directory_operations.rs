@@ -17,6 +17,9 @@ pub fn get_model_file_paths(model: Option<&str>) -> Vec<PathBuf> {
 
     if file_paths.is_empty() {
         println!("No model files found.");
+    } else {
+        //TODO Remove this once I add some watch functions
+        println!("{} model file(s) found",file_paths.len())
     }
 
     return file_paths

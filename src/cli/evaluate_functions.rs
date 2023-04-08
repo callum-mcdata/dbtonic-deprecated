@@ -5,6 +5,7 @@ use crate::parser::extractor::{extract_from_source};
 use crate::utils::printing::get_model_name;
 use crate::rules_engine::ast_rules::contains_source_and_ref::check_source_and_ref;
 use crate::rules_engine::ast_rules::contains_multiple_sources::check_multiple_sources;
+use crate::rules_engine::ast_rules::contains_no_source_or_ref::check_no_source_or_ref;
 
 pub fn evaluate_all_sql_files(file_paths: Vec<PathBuf>) -> HashMap<String, Vec<String>> {
     let mut messages = HashMap::new();
@@ -32,15 +33,12 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
         Err(_) => return None, // Return early if file can't be read
     };
 
-    dbg!(&sql);
-
     // let model_node = vec![];
 
     let mut message_list = vec![];
     let mut errors = vec![];
 
     let jinja_ast = extract_from_source(&sql);
-
 
     match jinja_ast {
         Ok(extraction) => {
@@ -51,6 +49,11 @@ fn process_sql_file(path: PathBuf) -> Option<(String, Vec<String>)> {
             if let Some(message) = check_source_and_ref(extraction.clone()) {
                 message_list.push(message);
             }
+
+            if let Some(message) = check_no_source_or_ref(extraction.clone()) {
+                message_list.push(message);
+            }
+
         }
         Err(e) => {
             // Add your custom error message here
