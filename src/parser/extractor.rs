@@ -135,6 +135,7 @@ pub enum ExprU {
     KwargU(String, Box<ExprU>),
     FnCallU(String, Vec<ExprU>),
     ScopedFnCallU(String, Vec<ExprU>),
+    JinjaExpressionU(String),
 }
 
 // typed ast
@@ -212,6 +213,7 @@ pub enum ExprType {
     Dict,
     FnCall,
     ScopedFnCall,
+    JinjaExpression,
     Root,
     Kwarg,
 }
@@ -225,6 +227,7 @@ impl ToString for ExprType {
             ExprType::Dict => "dict".to_owned(),
             ExprType::FnCall => "fn_call".to_owned(),
             ExprType::ScopedFnCall => "scoped_fn_call".to_owned(),
+            ExprType::JinjaExpression => "jinja_expression".to_owned(),
             ExprType::Root => "root".to_owned(),
             ExprType::Kwarg => "kwarg".to_owned(),
         }
@@ -240,6 +243,7 @@ impl ExprType {
             ExprU::DictU(..) => ExprType::Dict,
             ExprU::FnCallU(..) => ExprType::FnCall,
             ExprU::ScopedFnCallU(..) => ExprType::ScopedFnCall,
+            ExprU::JinjaExpressionU(..) => ExprType::JinjaExpression,
             ExprU::RootU(..) => ExprType::Root,
             ExprU::KwargU(..) => ExprType::Kwarg,
         }
@@ -303,7 +307,6 @@ fn strip_first_and_last(s: &str) -> String {
 // into the more structured ExprU type. This allows the rust compiler to be much more helpful.
 pub fn to_ast(source: &[u8], node: Node) -> Result<ExprU, SourceError> {
     let kind = node.kind();
-
     match kind {
         "source_file" => {
             let x: Result<Vec<ExprU>, SourceError> = named_children(node)
@@ -387,6 +390,8 @@ pub fn to_ast(source: &[u8], node: Node) -> Result<ExprU, SourceError> {
             Ok(ExprU::ScopedFnCallU(format!("{}",module_name), args))
         }
 
+        "jinja_expression" => Ok(ExprU::JinjaExpressionU("test".to_string())),
+
         s => Err(SourceError::UnknownNodeType(s.to_owned())),
     }
 
@@ -444,6 +449,8 @@ fn type_check(ast: ExprU) -> Result<ExprT, TypeError> {
         }
 
         ExprU::StringU(v) => Ok(ExprT::StringT(v)),
+
+        ExprU::JinjaExpressionU(v) => Ok(ExprT::StringT(v)),
 
         ExprU::BoolU(v) => Ok(ExprT::BoolT(v)),
 
@@ -697,6 +704,8 @@ fn extract_from(ast: ExprT) -> Extraction {
 }
 
 // go go gadget tree-sitter!
+// This is where we break down the jinja contained within the SQL
+// file into a tree. 
 fn run_tree_sitter(source_bytes: &[u8]) -> Result<Tree, SourceError> {
     let mut parser = tree_sitter::Parser::new();
     parser
@@ -721,8 +730,12 @@ pub fn extract_from_source(source: &str) -> Result<Extraction, ParseError> {
 
     let tree = map_err(run_tree_sitter(&source_bytes), ParseError::SourceE)?;
 
+    dbg!(&tree);
+
     // convert to internal ast
     let ast = map_err(to_ast(&source_bytes, tree.root_node()), ParseError::SourceE)?;
+
+    dbg!(&ast);
 
     // type check ast
     let typed_ast = map_err(type_check(ast), ParseError::TypeE)?;

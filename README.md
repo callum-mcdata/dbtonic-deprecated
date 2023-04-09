@@ -23,11 +23,13 @@ dbtonic's long term vision is to provide a dbt-first linting experience. **Howev
 # The Future
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
 
+## Short Term
+- I must have broken something with tree sitter. It has regressed to throwing errors on loops. Need to fix this.
+
 ## Medium Term
-- Determine a consistent format for the rules engine to operate over
-    - Quigley used the model for MF. Should I create somethign similar? A vector where each node contains {AST, raw_sql, & yaml}?
-    - If I want to expand beyond just jinja parsing then I'm going to need to get into SQL parsing. OOF. I guess it is an opportunity to build from the ground up for dbt.
-- Implement all the rules from dbt_project_evaluator
+- DONE: Determine a consistent format for the rules engine to operate over. The format is the ModelNode. 
+- Implement all the rules from dbt_project_evaluator.
+- DANG. I'm gonna need to understand the DAG to implement all the rules. 
 - Figure out a way for the user to configure those rules. Can I use `ruff` as a baseline here?
 
 ## Long Term
