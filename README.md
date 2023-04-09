@@ -24,6 +24,7 @@ dbtonic's long term vision is to provide a dbt-first linting experience. **Howev
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
 
 ## Short Term
+- 
 - I must have broken something with tree sitter. It has regressed to throwing errors on loops. Need to fix this.
 
 ## Medium Term

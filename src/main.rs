@@ -5,6 +5,7 @@ mod cli;
 mod parser;
 mod utils;
 mod rules;
+mod tokenizer;
 
 fn main() {
 
