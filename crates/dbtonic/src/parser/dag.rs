@@ -1,7 +1,6 @@
 use std::fmt;
 use crate::parser::model_node::ModelNode;
 use crate::utils::directory_operations::get_model_file_paths;
-use crate::cli::evaluate_functions::create_model_node;
 
 pub struct DAG {
     pub model_nodes: Vec<ModelNode>,
@@ -13,7 +12,7 @@ impl DAG {
 
         let model_nodes: Vec<ModelNode> = file_paths
             .into_iter()
-            .filter_map(|path| create_model_node(path))
+            .filter_map(|path| ModelNode::from_path(path))
             .collect();
 
         DAG { model_nodes }

@@ -1,4 +1,3 @@
-pub mod evaluate_functions;
 // The cli module
 use clap::ArgMatches;
 

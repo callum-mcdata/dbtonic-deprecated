@@ -12,9 +12,9 @@ impl Rule for ContainsMultipleSources {
     fn description(&self) -> String {
         "Checks if the model contains multiple sources".to_string()
     }
-
+    //TODO: Need some new way of checking the AST to see.
     fn run(&self, model_node: &ModelNode) -> RuleResult {
-        if let Ok(ref extraction) = model_node.data.jinja_ast {
+        if let Ok(ref extraction) = model_node.data.ast {
             if extraction.sources.len() > 1 {
                 RuleResult::Fail("The model contains multiple sources".to_string())
             } else {

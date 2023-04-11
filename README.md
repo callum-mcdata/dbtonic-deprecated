@@ -24,11 +24,22 @@ dbtonic's long term vision is to provide a dbt-first linting experience. **Howev
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
 
 ## Short Term
-- 
-- I must have broken something with tree sitter. It has regressed to throwing errors on loops. Need to fix this.
+- TODO: We're making progress. I've found it recognizing REF in the table parse but it is logging ref as the identifier. I need to figure out how to get it to not do that for REF but for the contents of ref. Maybe a parse_ref statement.
+- I am creating a fork of dbtparser-rs. This seems easier than using treesitter with what I want to do.
+    - I need to add Config, Var, Ref, & Source to Statements.
+    - I need to add the Display behavior for all those Statements.
+    - I might need to add logic for jinja with DoubleLBrance & DoubleRBrace
+    - I might need to add logic for jinja with LJinjaIterator & RJinjaIterator 
 
 ## Medium Term
-- DONE: Determine a consistent format for the rules engine to operate over. The format is the ModelNode. 
+- Determine a consistent format for the rules engine to operate over. 
+    - The format is the ModelNode. It should have:
+        - model_name CHECK
+        - raw sql CHECK
+        - ast
+        - token list CHECK
+        - yml struct
+        - maybe depends on or depended on?
 - Implement all the rules from dbt_project_evaluator.
 - DANG. I'm gonna need to understand the DAG to implement all the rules. 
 - Figure out a way for the user to configure those rules. Can I use `ruff` as a baseline here?
