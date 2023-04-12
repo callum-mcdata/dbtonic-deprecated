@@ -11,21 +11,6 @@ use std::sync::Arc;
 // use crate::utils::printing::print_messages;
 use crate::parser::dag::DAG;
 use crate::rules::rules_engine::{RulesEngine,RuleResult};
-use crate::rules::ast_rules::contains_multiple_sources::ContainsMultipleSources;
-use crate::rules::ast_rules::contains_source_and_ref::ContainsSourceAndRef;
-
-// pub fn evaluate(evaluate_matches: &ArgMatches) {
-//     let messages = if let Some(model) = evaluate_matches.value_of("model") {
-//         let dag = DAG::create(Some(model));
-//         let file_paths = get_model_file_paths(Some(model));
-//         evaluate_functions::evaluate_all_sql_files(file_paths)
-//     } else {
-//         let file_paths = get_model_file_paths(None);
-//         evaluate_functions::evaluate_all_sql_files(file_paths)
-//     };
-
-//     print_messages(&messages);
-// }
 
 pub fn evaluate(evaluate_matches: &ArgMatches) {
     // Instantiate the DAG
@@ -33,8 +18,6 @@ pub fn evaluate(evaluate_matches: &ArgMatches) {
 
     // Create the RuleRunner
     let mut rules_engine = RulesEngine::create();
-    rules_engine.add_rule(Box::new(ContainsMultipleSources));
-    rules_engine.add_rule(Box::new(ContainsSourceAndRef));
 
     // Run the rules on each of the models in the DAG using multi-threading
     let rules_engine_arc = Arc::new(rules_engine);

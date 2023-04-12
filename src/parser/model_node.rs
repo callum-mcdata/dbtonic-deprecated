@@ -5,7 +5,10 @@ use std::borrow::Cow;
 use sqlparser::ast::Statement;
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
-
+use sqlparser::tokenizer::{Token,Tokenizer};
+// use sqlparser::ast::li
+// use` sqlparser::ast::{Ident, Statement};
+// 
 pub struct ModelNode {
     pub model_name: String,
     pub data: ModelData,
@@ -31,7 +34,8 @@ impl fmt::Display for ModelNode {
 // This is the model data struct
 pub struct ModelData {
     pub ast: Vec<Statement>,
-    pub raw_sql: String,
+    pub tokens: Vec<Token>,
+    pub sql: String,
     pub yaml: String,
 }
 
@@ -39,7 +43,8 @@ impl fmt::Debug for ModelData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ModelData")
             .field("ast", &self.ast)
-            .field("raw_sql", &self.raw_sql)
+            .field("tokens", &self.tokens)
+            .field("sql", &self.sql)
             .field("yaml", &self.yaml)
             .finish()
     }
@@ -48,19 +53,21 @@ impl fmt::Debug for ModelData {
 impl fmt::Display for ModelData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "AST: {:?}", self.ast)?;
-        writeln!(f, "Raw SQL: {}", self.raw_sql)?;
+        writeln!(f, "Tokens: {:?}", self.tokens)?;
+        writeln!(f, "SQL: {}", self.sql)?;
         writeln!(f, "YAML: {}", self.yaml)?;
         Ok(())
     }
 }
 
 impl ModelNode {
-    pub fn create(model_name: String, ast: Vec<Statement>, raw_sql: String, yaml: String) -> Self {
+    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: String) -> Self {
         ModelNode {
             model_name,
             data: ModelData {
                 ast,
-                raw_sql,
+                tokens,
+                sql,
                 yaml,
             },
         }
@@ -85,9 +92,20 @@ impl ModelNode {
         };
     
         let dialect = GenericDialect {}; // or AnsiDialect, or your own dialect ...
+
+        let tokens: Vec<Token> = {
+            match Tokenizer::new(&dialect, &sql).tokenize() {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("Error tokenizing SQL: {:?}", e);
+                    vec![]
+                }
+            }
+        };
+
         let ast = Parser::parse_sql(&dialect, &sql).unwrap();
     
-        let model_node = ModelNode::create(model_name,ast,sql,"".to_string());
+        let model_node = ModelNode::create(model_name, ast, tokens, sql ,"".to_string());
     
         return Some(model_node)
     
@@ -96,3 +114,24 @@ impl ModelNode {
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_from_path() {
+        // Create a temporary file with SQL content for testing
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test_model.sql");
+        fs::write(&file_path, "SELECT * FROM ( SELECT 1 FROM {{ ref('test_model') }} )").unwrap();
+
+        let model_node = ModelNode::from_path(PathBuf::from(file_path)).unwrap();
+
+        assert_eq!(model_node.model_name, "test_model");
+        assert_eq!(model_node.data.sql, "SELECT * FROM ( SELECT 1 FROM {{ ref('test_model') }} )");
+        assert!(!model_node.data.ast.is_empty());
+        assert!(!model_node.data.tokens.is_empty());
+    }
+
+}

@@ -24,7 +24,7 @@ dbtonic's long term vision is to provide a dbt-first linting experience. **Howev
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
 
 ## Short Term
-- TODO: We're making progress. I've found it recognizing REF in the table parse but it is logging ref as the identifier. I need to figure out how to get it to not do that for REF but for the contents of ref. Maybe a parse_ref statement.
+- TODO: We need to figure out how to recursively parse through the AST to quickly check things like sources, refs, relations.
 - I am creating a fork of dbtparser-rs. This seems easier than using treesitter with what I want to do.
     - I need to add Config, Var, Ref, & Source to Statements.
     - I need to add the Display behavior for all those Statements.
