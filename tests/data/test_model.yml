@@ -1,6 +1,11 @@
 models:
   - name: test_model
     description: Some description
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - staging_id
+            - staging_date
     columns:
       - name: staging_id
         tests:
@@ -8,5 +13,19 @@ models:
           - not_null
 
       - name: staging_content
-      
+
+      - name: staging_date
+
+  - name: combined_test_model
+    description: Some description
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - staging_id
+            - staging_date
+    columns:
+      - name: staging_id
+
+      - name: staging_content
+
       - name: staging_date

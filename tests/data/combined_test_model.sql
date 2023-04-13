@@ -4,7 +4,7 @@ with staging as (
         staging_id,
         staging_content,
         staging_date
-    from {{ ref('stg_model_name') }}
+    from {{ ref('stg_model_name' )}}
 
 )
 

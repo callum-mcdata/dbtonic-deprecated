@@ -25,8 +25,10 @@ This section contains all my notes on what the future could look like. In the sh
 
 ## Short Term
 - TODO: We need to figure out how to recursively parse through the AST to quickly check things like sources, refs, relations.
+- TODO: I need to finalize the DAG creation logic & make sure unit tests pass.
+
 - I am creating a fork of dbtparser-rs. This seems easier than using treesitter with what I want to do.
-    - I need to add Config, Var, Ref, & Source to Statements.
+    - I need to add Config, Var, & Source to Statements.
     - I need to add the Display behavior for all those Statements.
     - I might need to add logic for jinja with DoubleLBrance & DoubleRBrace
     - I might need to add logic for jinja with LJinjaIterator & RJinjaIterator 

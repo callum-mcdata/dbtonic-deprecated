@@ -48,7 +48,7 @@ impl From<SerdeYamlError> for YamlParseError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct ModelYaml {
     pub name: String,
     pub access: Option<String>,
@@ -316,14 +316,15 @@ pub struct IncludeExclude {
 #[serde(untagged)]
 pub enum Tests {
     String(String),
-    RelationshipsTest(RelationshipsTest),
-    AcceptedValuesTest(AcceptedValuesTest),
-    NotNullTest(NotNullTest),
-    UniqueTest(UniqueTest),
+    CustomTest(serde_yaml::Value),
+    RelationshipsTest(RelationshipsTestContents),
+    AcceptedValuesTest(AcceptedValuesTestContents),
+    NotNullTest(NotNullTestContents),
+    UniqueTest(UniqueTestContents),
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct RelationshipsTest {
+pub struct RelationshipsTestContents {
     relationships: RelationshipsProperties,
 }
 
@@ -337,7 +338,7 @@ pub struct RelationshipsProperties {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct AcceptedValuesTest {
+pub struct AcceptedValuesTestContents {
     accepted_values: AcceptedValuesProperties,
 }
 
@@ -351,19 +352,19 @@ pub struct AcceptedValuesProperties {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct NotNullTest {
-    not_null: NotNullProperties,
+pub struct NotNullTestContents {
+    pub not_null: NotNullProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct NotNullProperties {
-    name: Option<String>,
-    config: Option<TestConfigs>,
-    where_clause: Option<String>,
+    pub name: Option<String>,
+    pub config: Option<TestConfigs>,
+    pub where_clause: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct UniqueTest {
+pub struct UniqueTestContents {
     unique: UniqueProperties,
 }
 
@@ -399,44 +400,8 @@ pub enum Severity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml;
     use std::fs;
     use tempfile::tempdir;
-
-    fn model_yaml() -> ModelYaml {
-        ModelYaml {
-            name: "stg_customers".to_string(),
-            access: None,
-            columns: Some(vec![
-                ColumnProperties {
-                    name: "customer_id".to_string(),
-                    constraints: None,
-                    data_type: None,
-                    description: Some("The unique key for each customer.".to_string()),
-                    meta: None,
-                    policy_tags: None,
-                    quote: None,
-                    tests: Some(vec![
-                        Tests::String("not_null".to_string()),
-                        Tests::String("unique".to_string()),
-                    ]),
-                    tags: None,
-                },
-            ]),
-            config: None,
-            constraints: None,
-            description: Some(
-                "Customer data with basic cleaning and transformation applied, one row per customer."
-                    .to_string(),
-            ),
-            docs: None,
-            group: None,
-            latest_version: None,
-            meta: None,
-            tests: None,
-            versions: None,
-        }
-    }
 
     #[test]
     fn test_parse_yaml_files() {

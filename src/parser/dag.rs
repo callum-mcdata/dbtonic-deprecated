@@ -151,12 +151,26 @@ mod tests {
     fn test_combine_model_nodes_and_yamls() {
         // Read test_model.sql
         let sql_file_path = Path::new("tests/data/test_model.sql");
-        let sql_content = fs::read_to_string(sql_file_path).unwrap();
 
         // Read test_model.yml
         let yaml_file_path = Path::new("tests/data/test_model.yml");
         let yaml_content = fs::read_to_string(yaml_file_path).unwrap();
-        let model_yaml: ModelYaml = serde_yaml::from_str(&yaml_content).unwrap();
+        let yaml_file: YamlFile = serde_yaml::from_str(&yaml_content).unwrap();
+    
+        // Extract ModelYaml instances from YamlFile
+        let model_yamls = yaml_file.models;
+
+        let model_node = ModelNode::from_path(sql_file_path.to_path_buf()).unwrap();
+
+        // Combine ModelNode and ModelYaml
+        let mut model_nodes = vec![model_node];
+        DAG::combine_model_nodes_and_yamls(&mut model_nodes, &model_yamls);
+
+        dbg!(&model_nodes);
+
+        // Check if the ModelYaml was correctly combined with the ModelNode
+        assert_eq!(model_nodes[0].data.yaml.as_ref().unwrap().name, "test_model");
+
     }
 
 }
