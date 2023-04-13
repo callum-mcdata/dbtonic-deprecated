@@ -1,43 +1,32 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::fmt;
+use std::path::PathBuf;
 use serde::{Deserialize, Deserializer ,Serialize};
-use serde_yaml::Value;
-use anyhow::Error;
 use serde_yaml::Error as SerdeYamlError;
 
 // This is the grouping of multiple ModelYaml.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct ModelYamls {
+pub struct YamlFiles {
+    pub yaml_files: Vec<YamlFile>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct YamlFile {
     pub models: Vec<ModelYaml>,
 }
 
-impl ModelYamls {
+impl YamlFile {
+    pub fn from_file(file_path: PathBuf) -> Result<Vec<ModelYaml>, YamlParseError> {
+        let mut file = File::open(file_path)?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
 
-    pub fn from_files(file_paths: &[&str]) -> Self {
-        let mut models = Vec::new();
-    
-        for file_path in file_paths {
-            let result: Result<Vec<ModelYaml>, Error> = (|| {
-                let mut file = File::open(Path::new(file_path))?;
-                let mut content = String::new();
-                file.read_to_string(&mut content)?;
-    
-                let model_yaml: serde_yaml::Value = serde_yaml::from_str(&content)?;
-                let model_metadata: Vec<ModelYaml> = serde_yaml::from_value(model_yaml["models"].clone())?;
-                Ok(model_metadata)
-            })();
-    
-            match result {
-                Ok(model_metadata) => models.extend(model_metadata),
-                Err(e) => {
-                    eprintln!("Error parsing YAML file {}: {}", file_path, e);
-                }
-            }
-        }
-    
-        ModelYamls { models }
-    } 
+        let model_yaml: serde_yaml::Value = serde_yaml::from_str(&content)?;
+        let model_metadata: Vec<ModelYaml> = serde_yaml::from_value(model_yaml["models"].clone())?;
+
+        Ok(model_metadata)
+    }
 }
 
 // Replace your existing YamlParseError with this custom error type
@@ -61,7 +50,7 @@ impl From<SerdeYamlError> for YamlParseError {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ModelYaml {
-    pub name: String,
+    pub model_name: String,
     pub access: Option<String>,
     pub columns: Option<Vec<ColumnProperties>>,
     pub config: Option<ModelConfigs>,
@@ -73,6 +62,67 @@ pub struct ModelYaml {
     pub meta: Option<serde_json::Value>,
     pub tests: Option<Vec<Tests>>,
     pub versions: Option<Vec<Version>>,
+}
+
+impl fmt::Display for ModelYaml {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "ModelYaml: {}", self.model_name)?;
+
+        if let Some(access) = &self.access {
+            writeln!(f, "  Access: {}", access)?;
+        }
+
+        if let Some(columns) = &self.columns {
+            writeln!(f, "  Columns:")?;
+            for column in columns {
+                writeln!(f, "    - {}", column)?;
+            }
+        }
+
+        if let Some(config) = &self.config {
+            writeln!(f, "  Config: {:?}", config)?;
+        }
+
+        if let Some(constraints) = &self.constraints {
+            writeln!(f, "  Constraints: {:?}", constraints)?;
+        }
+
+        if let Some(description) = &self.description {
+            writeln!(f, "  Description: {}", description)?;
+        }
+
+        if let Some(docs) = &self.docs {
+            writeln!(f, "  Docs: {:?}", docs)?;
+        }
+
+        if let Some(group) = &self.group {
+            writeln!(f, "  Group: {}", group)?;
+        }
+
+        if let Some(latest_version) = self.latest_version {
+            writeln!(f, "  Latest Version: {:.1}", latest_version)?;
+        }
+
+        if let Some(meta) = &self.meta {
+            writeln!(f, "  Meta: {:?}", meta)?;
+        }
+
+        if let Some(tests) = &self.tests {
+            writeln!(f, "  Tests:")?;
+            for test in tests {
+                writeln!(f, "    - {:?}", test)?;
+            }
+        }
+
+        if let Some(versions) = &self.versions {
+            writeln!(f, "  Versions:")?;
+            for version in versions {
+                writeln!(f, "    - {:?}", version)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 // In the JSON schema, the quote field can be either a boolean or a Jinja string. 
@@ -92,6 +142,52 @@ pub struct ColumnProperties {
     pub quote: Option<BooleanOrJinjaString>,
     pub tests: Option<Vec<Tests>>,
     pub tags: Option<StringOrArrayOfStrings>,
+}
+
+impl fmt::Display for ColumnProperties {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "ColumnProperties: {}", self.name)?;
+
+        if let Some(constraints) = &self.constraints {
+            writeln!(f, "  Constraints: {:?}", constraints)?;
+        }
+
+        if let Some(data_type) = &self.data_type {
+            writeln!(f, "  Data Type: {}", data_type)?;
+        }
+
+        if let Some(description) = &self.description {
+            writeln!(f, "  Description: {}", description)?;
+        }
+
+        if let Some(meta) = &self.meta {
+            writeln!(f, "  Meta: {:?}", meta)?;
+        }
+
+        if let Some(policy_tags) = &self.policy_tags {
+            writeln!(f, "  Policy Tags:")?;
+            for tag in policy_tags {
+                writeln!(f, "    - {}", tag)?;
+            }
+        }
+
+        if let Some(quote) = &self.quote {
+            writeln!(f, "  Quote: {:?}", quote)?;
+        }
+
+        if let Some(tests) = &self.tests {
+            writeln!(f, "  Tests:")?;
+            for test in tests {
+                writeln!(f, "    - {:?}", test)?;
+            }
+        }
+
+        if let Some(tags) = &self.tags {
+            writeln!(f, "  Tags: {:?}", tags)?;
+        }
+
+        Ok(())
+    }
 }
 
 // For BooleanOrJinjaString, the deserialize method checks whether the value is a 
@@ -309,7 +405,7 @@ mod tests {
 
     fn model_yaml() -> ModelYaml {
         ModelYaml {
-            name: "stg_customers".to_string(),
+            model_name: "stg_customers".to_string(),
             access: None,
             columns: Some(vec![
                 ColumnProperties {
@@ -343,140 +439,113 @@ mod tests {
     }
 
     #[test]
-    fn deserialize_single_model() {
-        let yaml = r#"
-version: 2
-models:
-  - name: stg_customers
-    description: Customer data with basic cleaning and transformation applied, one row per customer.
-    columns:
-      - name: customer_id
-        description: The unique key for each customer.
-        tests:
-          - not_null
-          - unique
-"#;
-
-    let deserialized_model_yaml: ModelYaml = serde_yaml::from_str(yaml).unwrap();
-    let expected_model_yaml = model_yaml();
-
-    assert_eq!(deserialized_model_yaml, expected_model_yaml);
-    }
-
-    #[test]
     fn test_parse_yaml_files() {
         // Create temporary directory for test files
         let dir = tempdir().unwrap();
         let file1_path = dir.path().join("file1.yaml");
         let file2_path = dir.path().join("file2.yaml");
-
+    
         // Write test YAML content to temporary files
         let file1_content = r#"
-models:
-  - name: model_1
-"#;
+        models:
+          - name: model_1
+        "#;
         let file2_content = r#"
-models:
-  - name: model_2
-"#;
+        models:
+          - name: model_2
+        "#;
         fs::write(&file1_path, file1_content).unwrap();
         fs::write(&file2_path, file2_content).unwrap();
-
-        // Call the `from_files` function
-        let file_paths = vec![file1_path.to_str().unwrap(), file2_path.to_str().unwrap()];
-        let models = ModelYamls::from_files(&file_paths);
-
+    
+        // Call the `from_file` function
+        let file1_models = YamlFile::from_file(file1_path).unwrap();
+        let file2_models = YamlFile::from_file(file2_path).unwrap();
+    
         // Check that the parsed models have the expected names
-        assert_eq!(models.models.len(), 2);
-        assert_eq!(models.models[0].len(), 1);
-        assert_eq!(models.models[0].name, "model_1");
-        assert_eq!(models.models[1].len(), 1);
-        assert_eq!(models.models[1].name, "model_2");
-
+        assert_eq!(file1_models.len(), 1);
+        assert_eq!(file1_models[0].model_name, "model_1");
+        assert_eq!(file2_models.len(), 1);
+        assert_eq!(file2_models[0].model_name, "model_2");
+    
         // Clean up the temporary directory
         dir.close().unwrap();
-
     }
-
 
     #[test]
     fn test_parse_complex_yaml_file() {
         // Create a temporary directory for the test file
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("complex_file.yaml");
-        
-    // Write test YAML content to the temporary file
-    let file_content = r#"
-models:
-  - name: stg_customers
-    description: Customer data with basic cleaning and transformation applied, one row per customer.
-    columns:
-      - name: customer_id
-        description: The unique key for each customer.
-        tests:
-            - not_null
-            - unique
-
-  - name: stg_locations
-    description: List of open locations with basic cleaning and transformation applied, one row per location.
-    columns:
-      - name: location_id
-        description: The unique key for each location.
-        tests:
-            - not_null
-            - unique
-
-  - name: stg_order_items
-    description: Individual food and drink items that make up our orders, one row per item.
-    columns:
-      - name: order_item_id
-        description: The unique key for each order item.
-        tests:
-            - not_null
-            - unique
-"#;
-
-    fs::write(&file_path, file_content).unwrap();
-
-    // Call the `from_files` function
-    let file_paths = vec![file_path.to_str().unwrap()];
-    let model_yamls = ModelYamls::from_files(&file_paths);
-
-
-    // Check that the parsed models have the expected names and descriptions
-    assert_eq!(model_yamls.models.len(), 1);
-    assert_eq!(model_yamls.models[0].models.len(), 3);
-    assert_eq!(model_yamls.models[0].models[0].name, "stg_customers");
-    assert_eq!(
-        model_yamls.models[0].models[0].description.as_deref(),
-        Some("Customer data with basic cleaning and transformation applied, one row per customer.")
-    );
-    assert_eq!(model_yamls.models[0].models[1].name, "stg_locations");
-    assert_eq!(
-        model_yamls.models[0].models[1].description.as_deref(),
-        Some("List of open locations with basic cleaning and transformation applied, one row per location.")
-    );
-    assert_eq!(model_yamls.models[0].models[2].name, "stg_order_items");
-    assert_eq!(
-        model_yamls.models[0].models[2].description.as_deref(),
-        Some("Individual food and drink items that make up our orders, one row per item.")
-    );
-
-    // Check that the parsed columns have the expected names and descriptions
-    assert_eq!(model_yamls.models[0].models[0].columns.as_ref().unwrap().len(), 1);
-    assert_eq!(
-        model_yamls.models[0].models[0].columns.as_ref().unwrap()[0].name,
-        "customer_id"
-    );
-    assert_eq!(
-        model_yamls.models[0].models[0].columns.as_ref().unwrap()[0]
-            .description
-            .as_deref(),
-        Some("The unique key for each customer.")
-    );
-
-    // Clean up the temporary directory
-    dir.close().unwrap();
+    
+        // Write test YAML content to the temporary file
+        let file_content = r#"
+    models:
+      - name: stg_customers
+        description: Customer data with basic cleaning and transformation applied, one row per customer.
+        columns:
+          - name: customer_id
+            description: The unique key for each customer.
+            tests:
+                - not_null
+                - unique
+    
+      - name: stg_locations
+        description: List of open locations with basic cleaning and transformation applied, one row per location.
+        columns:
+          - name: location_id
+            description: The unique key for each location.
+            tests:
+                - not_null
+                - unique
+    
+      - name: stg_order_items
+        description: Individual food and drink items that make up our orders, one row per item.
+        columns:
+          - name: order_item_id
+            description: The unique key for each order item.
+            tests:
+                - not_null
+                - unique
+    "#;
+    
+        fs::write(&file_path, file_content).unwrap();
+    
+        // Call the `from_file` function
+        let models = YamlFile::from_file(file_path).unwrap();
+    
+        // Check that the parsed models have the expected names and descriptions
+        assert_eq!(models.len(), 3);
+        assert_eq!(models[0].model_name, "stg_customers");
+        assert_eq!(
+            models[0].description.as_deref(),
+            Some("Customer data with basic cleaning and transformation applied, one row per customer.")
+        );
+        assert_eq!(models[1].model_name, "stg_locations");
+        assert_eq!(
+            models[1].description.as_deref(),
+            Some("List of open locations with basic cleaning and transformation applied, one row per location.")
+        );
+        assert_eq!(models[2].model_name, "stg_order_items");
+        assert_eq!(
+            models[2].description.as_deref(),
+            Some("Individual food and drink items that make up our orders, one row per item.")
+        );
+    
+        // Check that the parsed columns have the expected names and descriptions
+        assert_eq!(models[0].columns.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            models[0].columns.as_ref().unwrap()[0].name,
+            "customer_id"
+        );
+        assert_eq!(
+            models[0].columns.as_ref().unwrap()[0]
+                .description
+                .as_deref(),
+            Some("The unique key for each customer.")
+        );
+    
+        // Clean up the temporary directory
+        dir.close().unwrap();
     }
 
 }

@@ -6,9 +6,9 @@ use sqlparser::ast::Statement;
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 use sqlparser::tokenizer::{Token,Tokenizer};
-// use sqlparser::ast::li
-// use` sqlparser::ast::{Ident, Statement};
-// 
+use crate::parser::model_yaml::ModelYaml;
+
+
 pub struct ModelNode {
     pub model_name: String,
     pub data: ModelData,
@@ -36,7 +36,7 @@ pub struct ModelData {
     pub ast: Vec<Statement>,
     pub tokens: Vec<Token>,
     pub sql: String,
-    pub yaml: String,
+    pub yaml: Option<ModelYaml>,
 }
 
 impl fmt::Debug for ModelData {
@@ -55,20 +55,20 @@ impl fmt::Display for ModelData {
         writeln!(f, "AST: {:?}", self.ast)?;
         writeln!(f, "Tokens: {:?}", self.tokens)?;
         writeln!(f, "SQL: {}", self.sql)?;
-        writeln!(f, "YAML: {}", self.yaml)?;
+        writeln!(f, "YAML: {:?}", self.yaml)?;
         Ok(())
     }
 }
 
 impl ModelNode {
-    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: String) -> Self {
+    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: ModelYaml) -> Self {
         ModelNode {
             model_name,
             data: ModelData {
                 ast,
                 tokens,
                 sql,
-                yaml,
+                yaml: Some(yaml),
             },
         }
     }

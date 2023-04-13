@@ -3,7 +3,7 @@ use std::fmt;
 use std::path::PathBuf;
 use glob::glob;
 use crate::parser::model_node::ModelNode;
-use crate::parser::model_yaml::{ModelYaml, ModelYamls};
+use crate::parser::model_yaml::{ModelYaml, YamlFile};
 
 pub struct DAG {
     pub model_nodes: Vec<ModelNode>,
@@ -19,11 +19,13 @@ impl DAG {
             .filter_map(|path| ModelNode::from_path(path))
             .collect();
 
-        let model_metadatas: Vec<ModelYaml> = yaml_file_paths
+        let model_yamls: Vec<ModelYaml> = yaml_file_paths
             .into_iter()
-            .filter_map(|path| ModelYamls::from_files(&[path]))
-            .flatten()
+            .filter_map(|path| YamlFile::from_file(path).ok())
+            .flat_map(|models| models.into_iter())
             .collect();
+
+        Self::combine_model_nodes_and_yamls(&mut model_nodes, &model_yamls);
 
         DAG { model_nodes }
     }
@@ -80,6 +82,14 @@ impl DAG {
     
     }
 
+    fn combine_model_nodes_and_yamls(model_nodes: &mut Vec<ModelNode>, model_yamls: &Vec<ModelYaml>) {
+        for model_node in model_nodes {
+            if let Some(model_yaml) = model_yamls.iter().find(|m| m.model_name == model_node.model_name) {
+                model_node.data.yaml = model_yaml.clone();
+            }
+        }
+    }
+
 }
 
 impl fmt::Debug for DAG {
@@ -101,49 +111,39 @@ impl fmt::Display for DAG {
 }
 
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::fs;
-//     use std::path::PathBuf;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
 
-//     fn create_test_model_file(file_name: &str, content: &str) -> PathBuf {
-//         let temp_dir = tempfile::tempdir().unwrap();
-//         let file_path = temp_dir.path().join(file_name);
-//         fs::write(&file_path, content).unwrap();
-//         file_path
-//     }
+    #[test]
+    fn test_get_model_file_paths() {
+        // Create temporary directory for test files
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test_model.sql");
+        fs::write(&file_path, "").unwrap();
 
-//     #[test]
-//     fn test_dag_from_paths_all_models() {
-//         let model1_path = create_test_model_file("model1.sql", "SELECT * FROM table1");
-//         let model2_path = create_test_model_file("model2.sql", "SELECT * FROM table2");
+        let model_file_paths = DAG::get_model_file_paths(None);
 
-//         let _ = fs::create_dir("models");
-//         let _ = fs::hard_link(&model1_path, "models/model1.sql");
-//         let _ = fs::hard_link(&model2_path, "models/model2.sql");
+        // Check if the test_model.sql file is found
+        assert!(model_file_paths.into_iter().any(|path| path == file_path));
 
-//         let dag = DAG::create(None);
+        dir.close().unwrap();
+    }
 
-//         assert_eq!(dag.model_nodes.len(), 2);
+    #[test]
+    fn test_get_yaml_file_paths() {
+        // Create temporary directory for test files
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test_yaml.yml");
+        fs::write(&file_path, "").unwrap();
 
-//         let _ = fs::remove_dir_all("models");
-//     }
+        let yaml_file_paths = DAG::get_yaml_file_paths(None);
 
-//     #[test]
-//     fn test_dag_from_paths_specific_model() {
-//         let model1_path = create_test_model_file("model1.sql", "SELECT * FROM table1");
-//         let model2_path = create_test_model_file("model2.sql", "SELECT * FROM table2");
+        // Check if the test_yaml.yml file is found
+        assert!(yaml_file_paths.into_iter().any(|path| path == file_path));
 
-//         let _ = fs::create_dir("models");
-//         let _ = fs::hard_link(&model1_path, "models/model1.sql");
-//         let _ = fs::hard_link(&model2_path, "models/model2.sql");
+        dir.close().unwrap();
+    }
 
-//         let dag = DAG::create(None);
-
-//         assert_eq!(dag.model_nodes.len(), 1);
-//         assert_eq!(dag.model_nodes[0].model_name, "model1");
-
-//         let _ = fs::remove_dir_all("models");
-//     }
-// }
+}
