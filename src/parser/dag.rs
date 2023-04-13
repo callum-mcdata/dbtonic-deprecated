@@ -1,6 +1,6 @@
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use glob::glob;
 use crate::parser::model_node::ModelNode;
 use crate::parser::model_yaml::{ModelYaml, YamlFile};
@@ -11,10 +11,11 @@ pub struct DAG {
 
 impl DAG {
     pub fn create(model: Option<&str>) -> Self {
-        let model_file_paths = Self::get_model_file_paths(model);
-        let yaml_file_paths = Self::get_yaml_file_paths(model);
+        let base_path = std::env::current_dir().unwrap();
+        let model_file_paths = Self::get_model_file_paths(model,&base_path);
+        let yaml_file_paths = Self::get_yaml_file_paths(model, &base_path);
 
-        let model_nodes: Vec<ModelNode> = model_file_paths
+        let mut model_nodes: Vec<ModelNode> = model_file_paths
             .into_iter()
             .filter_map(|path| ModelNode::from_path(path))
             .collect();
@@ -30,10 +31,10 @@ impl DAG {
         DAG { model_nodes }
     }
 
-    fn get_model_file_paths(model: Option<&str>) -> Vec<PathBuf> {
+    fn get_model_file_paths(model: Option<&str>, base_path: &Path) -> Vec<PathBuf> {
         let pattern = match model {
-            Some(m) => format!("models/**/{}*.sql", m),
-            None => "models/**/*.sql".to_string(),
+            Some(m) => format!("{}/models/**/{}*.sql", base_path.display(), m),
+            None => format!("{}/models/**/*.sql", base_path.display()),
         };
     
         let mut file_paths = vec![];
@@ -55,15 +56,10 @@ impl DAG {
     
     }
 
-    fn get_yaml_file_paths(model: Option<&str>) -> Vec<PathBuf> {
-    
-        //TODO: Change this pattern. If it doesn't find a model with the file name 
-        // in yml then it should default to parsing all yml files and looking for the
-        // model inside one of them. Not sure if that has a significant performance 
-        // impact.
+    fn get_yaml_file_paths(model: Option<&str>, base_path: &Path) -> Vec<PathBuf> {
         let pattern = match model {
-            Some(m) => format!("models/**/{}*.yml", m),
-            None => "models/**/*.yml".to_string(),
+            Some(m) => format!("{}/models/**/{}*.yml", base_path.display(), m),
+            None => format!("{}/models/**/*.yml", base_path.display()),
         };
     
         let mut file_paths = vec![];
@@ -84,9 +80,10 @@ impl DAG {
 
     fn combine_model_nodes_and_yamls(model_nodes: &mut Vec<ModelNode>, model_yamls: &Vec<ModelYaml>) {
         for model_node in model_nodes {
-            if let Some(model_yaml) = model_yamls.iter().find(|m| m.model_name == model_node.model_name) {
-                model_node.data.yaml = model_yaml.clone();
-            }
+            model_node.data.yaml = match model_yamls.iter().find(|m| m.name == model_node.model_name) {
+                Some(model_yaml) => Some(model_yaml.to_owned()),
+                None => None,
+            };
         }
     }
 
@@ -120,10 +117,12 @@ mod tests {
     fn test_get_model_file_paths() {
         // Create temporary directory for test files
         let dir = tempfile::tempdir().unwrap();
-        let file_path = dir.path().join("test_model.sql");
+        let models_dir = dir.path().join("models");
+        fs::create_dir(&models_dir).unwrap();
+        let file_path = models_dir.join("test_model.sql");
         fs::write(&file_path, "").unwrap();
 
-        let model_file_paths = DAG::get_model_file_paths(None);
+        let model_file_paths = DAG::get_model_file_paths(None, dir.path());
 
         // Check if the test_model.sql file is found
         assert!(model_file_paths.into_iter().any(|path| path == file_path));
@@ -133,17 +132,31 @@ mod tests {
 
     #[test]
     fn test_get_yaml_file_paths() {
-        // Create temporary directory for test files
+    // Create temporary directory for test files
         let dir = tempfile::tempdir().unwrap();
-        let file_path = dir.path().join("test_yaml.yml");
+        let models_dir = dir.path().join("models");
+        fs::create_dir(&models_dir).unwrap();
+        let file_path = models_dir.join("test_yaml.yml"); // Change this line
         fs::write(&file_path, "").unwrap();
 
-        let yaml_file_paths = DAG::get_yaml_file_paths(None);
+        let yaml_file_paths = DAG::get_yaml_file_paths(None, dir.path());
 
         // Check if the test_yaml.yml file is found
         assert!(yaml_file_paths.into_iter().any(|path| path == file_path));
 
         dir.close().unwrap();
+    }
+
+    #[test]
+    fn test_combine_model_nodes_and_yamls() {
+        // Read test_model.sql
+        let sql_file_path = Path::new("tests/data/test_model.sql");
+        let sql_content = fs::read_to_string(sql_file_path).unwrap();
+
+        // Read test_model.yml
+        let yaml_file_path = Path::new("tests/data/test_model.yml");
+        let yaml_content = fs::read_to_string(yaml_file_path).unwrap();
+        let model_yaml: ModelYaml = serde_yaml::from_str(&yaml_content).unwrap();
     }
 
 }

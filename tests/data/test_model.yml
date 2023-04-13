@@ -1,0 +1,12 @@
+models:
+  - name: test_model
+    description: Some description
+    columns:
+      - name: staging_id
+        tests:
+          - unique
+          - not_null
+
+      - name: staging_content
+      
+      - name: staging_date

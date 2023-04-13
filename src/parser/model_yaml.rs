@@ -48,9 +48,9 @@ impl From<SerdeYamlError> for YamlParseError {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ModelYaml {
-    pub model_name: String,
+    pub name: String,
     pub access: Option<String>,
     pub columns: Option<Vec<ColumnProperties>>,
     pub config: Option<ModelConfigs>,
@@ -66,7 +66,7 @@ pub struct ModelYaml {
 
 impl fmt::Display for ModelYaml {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "ModelYaml: {}", self.model_name)?;
+        writeln!(f, "ModelYaml: {}", self.name)?;
 
         if let Some(access) = &self.access {
             writeln!(f, "  Access: {}", access)?;
@@ -131,7 +131,7 @@ impl fmt::Display for ModelYaml {
 // specific cases out-of-the-box. By implementing the Deserialize trait for 
 // these enums, you can define custom deserialization logic to handle these mixed types.
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ColumnProperties {
     pub name: String,
     pub constraints: Option<Constraints>,
@@ -193,7 +193,7 @@ impl fmt::Display for ColumnProperties {
 // For BooleanOrJinjaString, the deserialize method checks whether the value is a 
 // boolean or a string, and then creates an instance of the BooleanOrJinjaString 
 // enum variant accordingly.
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum BooleanOrJinjaString {
     Boolean(bool),
     JinjaString(String),
@@ -219,7 +219,7 @@ impl<'de> Deserialize<'de> for BooleanOrJinjaString {
 // a single string or an array of strings. If it's an array, it further validates 
 // that all elements of the array are strings. Then it creates an instance of the 
 // StringOrArrayOfStrings enum variant based on the input value.
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum StringOrArrayOfStrings {
     Single(String),
     Array(Vec<String>),
@@ -251,7 +251,7 @@ impl<'de> Deserialize<'de> for StringOrArrayOfStrings {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct ModelConfigs {
     pub contract: Option<Contract>,
     pub grant_access_to: Option<Vec<GrantAccessTo>>,
@@ -262,18 +262,18 @@ pub struct ModelConfigs {
     pub sql_header: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Contract {
     pub enforced: Option<BooleanOrJinjaString>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct GrantAccessTo {
     pub database: String,
     pub project: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Constraint {
     pub columns: Option<StringOrArrayOfStrings>,
     pub expression: Option<String>,
@@ -283,36 +283,36 @@ pub struct Constraint {
     pub warn_unsupported: Option<BooleanOrJinjaString>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Constraints {
     pub constraints: Vec<Constraint>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Docs {
     pub show: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Version {
     pub v: f64,
     pub config: Option<ModelConfigs>,
     pub columns: Option<Vec<Column>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub enum Column {
     IncludeExclude(IncludeExclude),
     ColumnProperties(ColumnProperties),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct IncludeExclude {
     pub include: Option<StringOrArrayOfStrings>,
     pub exclude: Option<StringOrArrayOfStrings>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(untagged)]
 pub enum Tests {
     String(String),
@@ -322,12 +322,12 @@ pub enum Tests {
     UniqueTest(UniqueTest),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RelationshipsTest {
     relationships: RelationshipsProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RelationshipsProperties {
     name: Option<String>,
     config: Option<TestConfigs>,
@@ -336,12 +336,12 @@ pub struct RelationshipsProperties {
     where_clause: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct AcceptedValuesTest {
     accepted_values: AcceptedValuesProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct AcceptedValuesProperties {
     name: Option<String>,
     config: Option<TestConfigs>,
@@ -350,31 +350,31 @@ pub struct AcceptedValuesProperties {
     where_clause: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct NotNullTest {
     not_null: NotNullProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct NotNullProperties {
     name: Option<String>,
     config: Option<TestConfigs>,
     where_clause: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct UniqueTest {
     unique: UniqueProperties,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct UniqueProperties {
     name: Option<String>,
     config: Option<TestConfigs>,
     where_clause: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct TestConfigs {
     alias: Option<String>,
     database: Option<String>,
@@ -389,7 +389,7 @@ pub struct TestConfigs {
     warn_if: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     Warn,
@@ -405,7 +405,7 @@ mod tests {
 
     fn model_yaml() -> ModelYaml {
         ModelYaml {
-            model_name: "stg_customers".to_string(),
+            name: "stg_customers".to_string(),
             access: None,
             columns: Some(vec![
                 ColumnProperties {
@@ -463,9 +463,9 @@ mod tests {
     
         // Check that the parsed models have the expected names
         assert_eq!(file1_models.len(), 1);
-        assert_eq!(file1_models[0].model_name, "model_1");
+        assert_eq!(file1_models[0].name, "model_1");
         assert_eq!(file2_models.len(), 1);
-        assert_eq!(file2_models[0].model_name, "model_2");
+        assert_eq!(file2_models[0].name, "model_2");
     
         // Clean up the temporary directory
         dir.close().unwrap();
@@ -515,17 +515,17 @@ mod tests {
     
         // Check that the parsed models have the expected names and descriptions
         assert_eq!(models.len(), 3);
-        assert_eq!(models[0].model_name, "stg_customers");
+        assert_eq!(models[0].name, "stg_customers");
         assert_eq!(
             models[0].description.as_deref(),
             Some("Customer data with basic cleaning and transformation applied, one row per customer.")
         );
-        assert_eq!(models[1].model_name, "stg_locations");
+        assert_eq!(models[1].name, "stg_locations");
         assert_eq!(
             models[1].description.as_deref(),
             Some("List of open locations with basic cleaning and transformation applied, one row per location.")
         );
-        assert_eq!(models[2].model_name, "stg_order_items");
+        assert_eq!(models[2].name, "stg_order_items");
         assert_eq!(
             models[2].description.as_deref(),
             Some("Individual food and drink items that make up our orders, one row per item.")

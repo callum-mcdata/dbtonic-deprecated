@@ -61,14 +61,14 @@ impl fmt::Display for ModelData {
 }
 
 impl ModelNode {
-    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: ModelYaml) -> Self {
+    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: Option<ModelYaml> ) -> Self {
         ModelNode {
             model_name,
             data: ModelData {
                 ast,
                 tokens,
                 sql,
-                yaml: Some(yaml),
+                yaml,
             },
         }
     }
@@ -105,7 +105,7 @@ impl ModelNode {
 
         let ast = Parser::parse_sql(&dialect, &sql).unwrap();
     
-        let model_node = ModelNode::create(model_name, ast, tokens, sql ,"".to_string());
+        let model_node = ModelNode::create(model_name, ast, tokens, sql , None);
     
         return Some(model_node)
     
