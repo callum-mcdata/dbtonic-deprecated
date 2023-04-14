@@ -37,6 +37,7 @@ pub struct ModelData {
     pub tokens: Vec<Token>,
     pub sql: String,
     pub yaml: Option<ModelYaml>,
+    pub errors: Option<Vec<String>>,
 }
 
 impl fmt::Debug for ModelData {
@@ -46,6 +47,7 @@ impl fmt::Debug for ModelData {
             .field("tokens", &self.tokens)
             .field("sql", &self.sql)
             .field("yaml", &self.yaml)
+            .field("errors", &self.errors)
             .finish()
     }
 }
@@ -56,12 +58,13 @@ impl fmt::Display for ModelData {
         writeln!(f, "Tokens: {:?}", self.tokens)?;
         writeln!(f, "SQL: {}", self.sql)?;
         writeln!(f, "YAML: {:?}", self.yaml)?;
+        writeln!(f, "Errors: {:?}", self.errors)?;
         Ok(())
     }
 }
 
 impl ModelNode {
-    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: Option<ModelYaml> ) -> Self {
+    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: Option<ModelYaml>, errors: Option<Vec<String>>) -> Self {
         ModelNode {
             model_name,
             data: ModelData {
@@ -69,6 +72,7 @@ impl ModelNode {
                 tokens,
                 sql,
                 yaml,
+                errors,
             },
         }
     }
@@ -103,9 +107,17 @@ impl ModelNode {
             }
         };
 
-        let ast = Parser::parse_sql(&dialect, &sql).unwrap();
+        let ast_result = Parser::parse_sql(&dialect, &sql);
+
+        let (ast, errors) = match ast_result {
+            Ok(ast) => (ast, None),
+            Err(e) => {
+                eprintln!("Error in parsing model {}: {:?}", model_name, e);
+                (vec![], Some(vec![format!("{:?}", e)]))
+            }
+        };
     
-        let model_node = ModelNode::create(model_name, ast, tokens, sql , None);
+        let model_node = ModelNode::create(model_name, ast, tokens, sql , None, errors);
     
         return Some(model_node)
     

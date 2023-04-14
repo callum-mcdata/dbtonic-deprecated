@@ -34,7 +34,7 @@ impl Rule for UniqueNotNullOrCombinationRule {
                         Tests::String(s) => s == "not_null",
                         _ => false,
                     });
-
+    
                     if unique_test && not_null_test {
                         unique_not_null = true;
                         break;
@@ -43,48 +43,50 @@ impl Rule for UniqueNotNullOrCombinationRule {
             }
         }
 
-        if unique_not_null {
-            return RuleResult::Pass;
-        }
-
-        if let Some(tests) = &yaml.tests {
+        let unique_combination_test = if let Some(tests) = &yaml.tests {
             let unique_combination_test_key = Value::String("dbt_utils.unique_combination_of_columns".to_string());
-            let unique_combination_test = tests.iter().any(|test| match test {
+            tests.iter().any(|test| match test {
                 Tests::CustomTest(value) => value
                     .as_mapping()
                     .map(|map| map.contains_key(&unique_combination_test_key))
                     .unwrap_or(false),
                 _ => false,
-            });
-    
-            if unique_combination_test {
-                return RuleResult::Pass;
-            }
+            })
+        } else {
+            false
+        };
+
+        if unique_not_null || unique_combination_test {
+            RuleResult::Pass
+        } else {
+            RuleResult::Fail(
+                "The model does not satisfy the unique, not_null, or unique_combination_of_columns requirements."
+                    .to_string(),
+            )
         }
 
-        RuleResult::Fail(
-            "The model does not satisfy the unique, not_null, or unique_combination_of_columns requirements."
-                .to_string(),
-        )
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-    use crate::rules::yml_rules::model_primary_key_tests::Tests::NotNullTest;
-    use crate::parser::model_yaml::{ModelYaml, NotNullProperties};
+    use crate::parser::model_yaml::{
+        ModelYaml,
+        NotNullProperties, 
+        NotNullTestContents, 
+        UniqueTestContents, 
+        UniqueProperties
+    };
     use crate::parser::model_node::ModelData;
-    use crate::parser::model_yaml::NotNullTestContents;
-    
+
     #[test]
-    fn test_unique_combination_rule() {
+    fn test_unique_combination_of_columns_present() {
         let rule = UniqueNotNullOrCombinationRule {};
 
         // ModelNode with unique_combination_of_columns test at the model level
-        let model_yaml1 = ModelYaml {
-            name: "test_model1".to_string(),
+        let model_yaml = ModelYaml {
+            name: "test_model".to_string(),
             description: None,
             columns: None,
             tests: Some(vec![
@@ -93,22 +95,28 @@ mod tests {
             ..Default::default()
         };
 
-        let model_node1 = ModelNode {
-            model_name: "test_model1".to_string(),
+        let model_node = ModelNode {
+            model_name: "test_model".to_string(),
             data: ModelData {
                 ast: vec![],
                 tokens: vec![],
                 sql: String::new(),
-                yaml: Some(model_yaml1),
+                yaml: Some(model_yaml),
+                errors: None
             },
         };
 
-        let result1 = rule.run(&model_node1);
-        assert_eq!(result1, RuleResult::Pass);
+        let result = rule.run(&model_node);
+        assert_eq!(result, RuleResult::Pass);
+    }
 
+    #[test]
+    fn test_unique_not_null_present() {
+        let rule = UniqueNotNullOrCombinationRule {};
+       
         // ModelNode without unique_combination_of_columns test at the model level
-        let model_yaml2 = ModelYaml {
-            name: "test_model2".to_string(),
+        let model_yaml = ModelYaml {
+            name: "test_model".to_string(),
             description: None,
             columns: None,
             // tests: Tests::NotNullTest{not_null: NotNullProperties}
@@ -120,21 +128,55 @@ mod tests {
                         where_clause: None,
                     },
                 }),
+                Tests::UniqueTest(UniqueTestContents {
+                    unique: UniqueProperties {
+                        name: Some("column_name".to_string()),
+                        config: None,
+                        where_clause: None,
+                    },
+                }),
             ]),
             ..Default::default()
         };
 
-        let model_node2 = ModelNode {
-            model_name: "test_model2".to_string(),
+        let model_node = ModelNode {
+            model_name: "test_model".to_string(),
             data: ModelData {
                 ast: vec![],
                 tokens: vec![],
                 sql: String::new(),
-                yaml: Some(model_yaml2),
+                yaml: Some(model_yaml),
+                errors: None
             },
         };
 
-        let result2 = rule.run(&model_node2);
-        assert_ne!(result2, RuleResult::Pass);
+        let result = rule.run(&model_node);
+        assert_ne!(result, RuleResult::Pass);
     }
+
+    #[test]
+    fn test_unique_not_null_not_present() {
+        let rule = UniqueNotNullOrCombinationRule {};
+       
+        // ModelNode without unique_combination_of_columns test at the model level
+        let model_yaml = ModelYaml {
+            name: "test_model".to_string(),
+            ..Default::default()
+        };
+
+        let model_node = ModelNode {
+            model_name: "test_model".to_string(),
+            data: ModelData {
+                ast: vec![],
+                tokens: vec![],
+                sql: String::new(),
+                yaml: Some(model_yaml),
+                errors: None
+            },
+        };
+
+        let result = rule.run(&model_node);
+        assert_ne!(result, RuleResult::Pass);
+    }
+
 }

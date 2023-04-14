@@ -365,14 +365,14 @@ pub struct NotNullProperties {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct UniqueTestContents {
-    unique: UniqueProperties,
+    pub unique: UniqueProperties,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct UniqueProperties {
-    name: Option<String>,
-    config: Option<TestConfigs>,
-    where_clause: Option<String>,
+    pub name: Option<String>,
+    pub config: Option<TestConfigs>,
+    pub where_clause: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]

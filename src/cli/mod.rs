@@ -5,6 +5,8 @@ use clap::ArgMatches;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use std::sync::Arc;
+use crate::rules::yml_rules::model_yaml_defined::ModelYamlExists;
+use crate::rules::yml_rules::model_primary_key_tests::UniqueNotNullOrCombinationRule;
 
 // Publishes the ensure dbt project file which contains the validate function
 // use crate::utils::directory_operations::get_model_file_paths;
@@ -18,6 +20,8 @@ pub fn evaluate(evaluate_matches: &ArgMatches) {
 
     // Create the RuleRunner
     let mut rules_engine = RulesEngine::create();
+    rules_engine.add_rule(Box::new(UniqueNotNullOrCombinationRule {}));
+    rules_engine.add_rule(Box::new(ModelYamlExists {}));
 
     // Run the rules on each of the models in the DAG using multi-threading
     let rules_engine_arc = Arc::new(rules_engine);

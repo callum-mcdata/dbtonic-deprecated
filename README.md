@@ -25,7 +25,9 @@ This section contains all my notes on what the future could look like. In the sh
 
 ## Short Term
 - TODO: We need to figure out how to recursively parse through the AST to quickly check things like sources, refs, relations.
-- TODO: I need to finalize the DAG creation logic & make sure unit tests pass.
+- TODO: I need to add parsing for configs. This should go in `parse_statement` as a top level and not parse_prefix because configs will always be at the top of the model, never in the body.
+  - I should probably figure out what enum DbtConfig should go in.
+- TODO: I need to add parsing for jinja loops. This probably should be in parse_expr or parse_prefix. Should it return an expr? 
 
 - I am creating a fork of dbtparser-rs. This seems easier than using treesitter with what I want to do.
     - I need to add Config, Var, & Source to Statements.
@@ -38,12 +40,11 @@ This section contains all my notes on what the future could look like. In the sh
     - The format is the ModelNode. It should have:
         - model_name CHECK
         - raw sql CHECK
-        - ast
+        - ast CHECK
         - token list CHECK
-        - yml struct
+        - yml struct CHECK
         - maybe depends on or depended on?
 - Implement all the rules from dbt_project_evaluator.
-- DANG. I'm gonna need to understand the DAG to implement all the rules. 
 - Figure out a way for the user to configure those rules. Can I use `ruff` as a baseline here?
 
 ## Long Term
