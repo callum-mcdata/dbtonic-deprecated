@@ -1,3 +1,6 @@
+// General modules
+use std::process;
+
 // The cli module
 use clap::ArgMatches;
 
@@ -5,12 +8,9 @@ use clap::ArgMatches;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use std::sync::Arc;
-use crate::rules::yml_rules::model_yaml_defined::ModelYamlExists;
-use crate::rules::yml_rules::model_primary_key_tests::UniqueNotNullOrCombinationRule;
 
-// Publishes the ensure dbt project file which contains the validate function
-// use crate::utils::directory_operations::get_model_file_paths;
-// use crate::utils::printing::print_messages;
+// Internal objects
+use crate::configuration::dbtonic_config::DbtonicConfig;
 use crate::parser::dag::DAG;
 use crate::rules::rules_engine::{RulesEngine,RuleResult};
 
@@ -18,10 +18,17 @@ pub fn evaluate(evaluate_matches: &ArgMatches) {
     // Instantiate the DAG
     let dag = DAG::create(evaluate_matches.value_of("model"));
 
+    // Read the config file
+    let config = match DbtonicConfig::read() {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("Error reading dbtonic.toml: {:?}", e);
+            process::exit(1);
+        }
+    };
+
     // Create the RuleRunner
-    let mut rules_engine = RulesEngine::create();
-    rules_engine.add_rule(Box::new(UniqueNotNullOrCombinationRule {}));
-    rules_engine.add_rule(Box::new(ModelYamlExists {}));
+    let rules_engine = RulesEngine::create(&config);
 
     // Run the rules on each of the models in the DAG using multi-threading
     let rules_engine_arc = Arc::new(rules_engine);

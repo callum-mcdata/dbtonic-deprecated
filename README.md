@@ -47,9 +47,6 @@ This section contains all my notes on what the future could look like. In the sh
 - Implement all the rules from dbt_project_evaluator.
 - Figure out a way for the user to configure those rules. Can I use `ruff` as a baseline here?
 
-## Long Term
-- If I want to expand beyond just jinja parsing then I'm going to need to get into SQL parsing. OOF. I guess it is an opportunity to build from the ground up for dbt.
-    - I'll only want to support Snowflake to begin with because it's what I'm most familiar with. Maybe DuckDB as well for local testing and cause Josh's work in this area is inspiring.
 
 ## Longest Term
 - Can I figure out a way to use OpenAI APIs to consistently document columns if a user hasn't? Would be optional
