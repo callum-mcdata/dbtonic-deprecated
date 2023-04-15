@@ -23,17 +23,16 @@ dbtonic's long term vision is to provide a dbt-first linting experience. **Howev
 # The Future
 This section contains all my notes on what the future could look like. In the short term I am using this as an alternative to Github issues because it is easier for me to keep track of. 
 
+## TODO List
+- Figure out how to make `{#` be recognized as a comment.
+- Figure out how to make config work? It seems to be throwing off parsing for Ref & Source
+- Create an AST endpoint for returning an AST
+- Add parsing for jinja loops
+- Add parsing for Vars
+
 ## Short Term
 - TODO: We need to figure out how to recursively parse through the AST to quickly check things like sources, refs, relations.
-- TODO: I need to add parsing for configs. This should go in `parse_statement` as a top level and not parse_prefix because configs will always be at the top of the model, never in the body.
-  - I should probably figure out what enum DbtConfig should go in.
-- TODO: I need to add parsing for jinja loops. This probably should be in parse_expr or parse_prefix. Should it return an expr? 
 
-- I am creating a fork of dbtparser-rs. This seems easier than using treesitter with what I want to do.
-    - I need to add Config, Var, & Source to Statements.
-    - I need to add the Display behavior for all those Statements.
-    - I might need to add logic for jinja with DoubleLBrance & DoubleRBrace
-    - I might need to add logic for jinja with LJinjaIterator & RJinjaIterator 
 
 ## Medium Term
 - Determine a consistent format for the rules engine to operate over. 

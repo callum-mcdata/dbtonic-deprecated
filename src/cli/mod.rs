@@ -55,3 +55,26 @@ pub fn evaluate(evaluate_matches: &ArgMatches) {
     }
 
 }
+
+pub fn get_ast(get_ast_matches: &ArgMatches) {
+
+    // Initialize the DAG
+    let dag = DAG::create(get_ast_matches.value_of("model"));
+
+    // Find the model node for the specified model
+    if let Some(model_name) = get_ast_matches.value_of("model") {
+        if let Some(model_node) = dag.model_nodes.iter().find(|node| node.model_name == model_name) {
+            // Print the AST for the specified model
+            println!("AST for model: {}", model_name);
+            for stmt in &model_node.data.ast {
+                println!("{:#?}", stmt);
+            }
+        } else {
+            eprintln!("Error: Model not found: {}", model_name);
+            process::exit(1);
+        }
+    } else {
+        eprintln!("Error: No model specified");
+        process::exit(1);
+    }
+}
