@@ -78,3 +78,26 @@ pub fn get_ast(get_ast_matches: &ArgMatches) {
         process::exit(1);
     }
 }
+
+pub fn get_tokens(get_tokens_matches: &ArgMatches) {
+
+    // Initialize the DAG
+    let dag = DAG::create(get_tokens_matches.value_of("model"));
+
+    // Find the model node for the specified model
+    if let Some(model_name) = get_tokens_matches.value_of("model") {
+        if let Some(model_node) = dag.model_nodes.iter().find(|node| node.model_name == model_name) {
+            // Print the AST for the specified model
+            println!("Tokens for model: {}", model_name);
+            for tokens in &model_node.data.tokens {
+                println!("{:#?}", tokens);
+            }
+        } else {
+            eprintln!("Error: Model not found: {}", model_name);
+            process::exit(1);
+        }
+    } else {
+        eprintln!("Error: No model specified");
+        process::exit(1);
+    }
+}

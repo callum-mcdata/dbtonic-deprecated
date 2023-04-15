@@ -28,6 +28,13 @@ fn main() {
                 .required(true)
                 .takes_value(true)
                 .help("Defines the SQL model to get AST for")))
+        .subcommand(SubCommand::with_name("get-tokens")
+            .about("Returns the Tokens of a specific model")
+            .arg(Arg::with_name("model")
+                .long("model")
+                .required(true)
+                .takes_value(true)
+                .help("Defines the SQL model to get Tokens for")))
         .get_matches();
 
 
@@ -35,6 +42,7 @@ fn main() {
 
     if let Some(_) = matches.subcommand_matches("hello") {
         println!("Hello person, I am dbtonic your friendly neighborhood dbt Connoisseur");
+
     } else if let Some(evaluate_matches) = matches.subcommand_matches("evaluate") {
         cli::evaluate(evaluate_matches);
     }
@@ -42,6 +50,11 @@ fn main() {
     if let Some(get_ast_matches) = matches.subcommand_matches("get-ast") {
         cli::get_ast(get_ast_matches);
     }
+
+    if let Some(get_tokens_matches) = matches.subcommand_matches("get-ast") {
+        cli::get_tokens(get_tokens_matches);
+    }
+
 
     
 }
