@@ -1,3 +1,0 @@
-## This Code
-You may be wondering - what is python doing in this Rust repo? Well you've found my secret: 
-I don't really know how to use Rust that well! Thankfully ChatGPT exists and so this section of the codebase is my attempt to use it in order to supplement my own knowledge while also messing around with langchain. 
