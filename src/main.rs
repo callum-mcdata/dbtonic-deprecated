@@ -51,7 +51,7 @@ fn main() {
         cli::get_ast(get_ast_matches);
     }
 
-    if let Some(get_tokens_matches) = matches.subcommand_matches("get-ast") {
+    if let Some(get_tokens_matches) = matches.subcommand_matches("get-tokens") {
         cli::get_tokens(get_tokens_matches);
     }
 
