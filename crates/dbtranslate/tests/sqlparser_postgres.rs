@@ -25,7 +25,7 @@ use dbtranslate::dialect::{GenericDialect, PostgreSqlDialect};
 fn test_postgres_create_table_errors() {
     let sql = "CREATE TABLE _my_$table (am00unt number)";
     let dialect = PostgreSqlDialect {};
-    let error_message = "CREATE is not supported by dbt-sqlparser";
+    let error_message = "CREATE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -33,7 +33,7 @@ fn test_postgres_create_table_errors() {
 fn test_postgres_drop_schema_errors() {
     let sql = "DROP SCHEMA IF EXISTS schema_name";
     let dialect = PostgreSqlDialect {};
-    let error_message = "DROP is not supported by dbt-sqlparser";
+    let error_message = "DROP is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 

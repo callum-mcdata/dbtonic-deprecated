@@ -26,7 +26,7 @@ mod test_utils;
 fn test_snowflake_create_table() {
     let sql = "CREATE TABLE _my_$table (am00unt number)";
     let dialect = SnowflakeDialect {};
-    let error_message = "CREATE is not supported by dbt-sqlparser";
+    let error_message = "CREATE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 

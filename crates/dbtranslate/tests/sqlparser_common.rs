@@ -39,7 +39,7 @@ mod test_utils;
 
 #[test]
 fn test_insert_errors() {
-    let error_message = "INSERT is not supported by dbt-sqlparser";
+    let error_message = "INSERT is not supported by dbtranslate";
     let dialect = GenericDialect {};
     let sqls = vec![
         "INSERT customer VALUES (1, 2, 3)",
@@ -59,7 +59,7 @@ fn test_insert_errors() {
 fn test_generic_create_errors() {
     let sql = "CREATE TABLE _my_$table (am00unt number)";
     let dialect = GenericDialect {};
-    let error_message = "CREATE is not supported by dbt-sqlparser";
+    let error_message = "CREATE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -67,7 +67,7 @@ fn test_generic_create_errors() {
 fn test_generic_update_errors() {
     let sql = "UPDATE t SET a = 1, b = 2, c = 3 WHERE d";
     let dialect: GenericDialect = GenericDialect {};
-    let error_message = "UPDATE is not supported by dbt-sqlparser";
+    let error_message = "UPDATE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -75,7 +75,7 @@ fn test_generic_update_errors() {
 fn test_generic_set_errors() {
     let sql = "SET SOMETHING = '1'";
     let dialect: GenericDialect = GenericDialect {};
-    let error_message = "SET is not supported by dbt-sqlparser outside of jinja";
+    let error_message = "SET is not supported by dbtranslate outside of jinja";
     check_error(sql, error_message, &dialect);
 }
 
@@ -83,7 +83,7 @@ fn test_generic_set_errors() {
 fn test_revoke_errors() {
     let sql = "REVOKE ALL PRIVILEGES ON users, auth FROM analyst CASCADE";
     let dialect = GenericDialect {};
-    let error_message = "REVOKE is not supported by dbt-sqlparser";
+    let error_message = "REVOKE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -91,7 +91,7 @@ fn test_revoke_errors() {
 fn test_merge_errors() {
     let sql = "MERGE INTO s.bar AS dest USING (SELECT * FROM s.foo)";
     let dialect = GenericDialect {};
-    let error_message = "MERGE is not supported by dbt-sqlparser";
+    let error_message = "MERGE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -99,7 +99,7 @@ fn test_merge_errors() {
 fn test_delete_errors() {
     let sql = "DELETE FROM table_name";
     let dialect = GenericDialect {};
-    let error_message = "DELETE is not supported by dbt-sqlparser";
+    let error_message = "DELETE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -107,7 +107,7 @@ fn test_delete_errors() {
 fn test_copy_errors() {
     let sql = "COPY users TO data.csv";
     let dialect = GenericDialect {};
-    let error_message = "COPY is not supported by dbt-sqlparser";
+    let error_message = "COPY is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -115,7 +115,7 @@ fn test_copy_errors() {
 fn test_close_errors() {
     let sql = r#"CLOSE my_cursor"#;
     let dialect = GenericDialect {};
-    let error_message = "CLOSE is not supported by dbt-sqlparser";
+    let error_message = "CLOSE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -123,7 +123,7 @@ fn test_close_errors() {
 fn test_declare_errors() {
     let sql = "DECLARE \"SQL_CUR0x7fa44801bc00\" CURSOR WITH HOLD FOR SELECT 1";
     let dialect = GenericDialect {};
-    let error_message = "DECLARE is not supported by dbt-sqlparser";
+    let error_message = "DECLARE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -139,7 +139,7 @@ fn test_fetch_errors() {
 fn test_discard_errors() {
     let sql = "DISCARD ALL";
     let dialect = GenericDialect {};
-    let error_message = "DISCARD is not supported by dbt-sqlparser";
+    let error_message = "DISCARD is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -147,7 +147,7 @@ fn test_discard_errors() {
 fn test_deallocate_errors() {
     let sql = "DEALLOCATE prepared_statement_name";
     let dialect = GenericDialect {};
-    let error_message = "DEALLOCATE is not supported by dbt-sqlparser";
+    let error_message = "DEALLOCATE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -155,7 +155,7 @@ fn test_deallocate_errors() {
 fn test_kill_errors() {
     let sql = "KILL connection_id";
     let dialect = GenericDialect {};
-    let error_message = "KILL is not supported by dbt-sqlparser";
+    let error_message = "KILL is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -163,7 +163,7 @@ fn test_kill_errors() {
 fn test_execute_errors() {
     let sql = "EXECUTE my_procedure()";
     let dialect = GenericDialect {};
-    let error_message = "EXECUTE is not supported by dbt-sqlparser";
+    let error_message = "EXECUTE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -171,7 +171,7 @@ fn test_execute_errors() {
 fn test_use_errors() {
     let sql = "USE my_database";
     let dialect = GenericDialect {};
-    let error_message = "USE is not supported by dbt-sqlparser";
+    let error_message = "USE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -179,7 +179,7 @@ fn test_use_errors() {
 fn test_cache_errors() {
     let sql = "CACHE my_table";
     let dialect = GenericDialect {};
-    let error_message = "CACHE is not supported by dbt-sqlparser";
+    let error_message = "CACHE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -187,7 +187,7 @@ fn test_cache_errors() {
 fn test_uncache_errors() {
     let sql = "UNCACHE my_table";
     let dialect = GenericDialect {};
-    let error_message = "UNCACHE is not supported by dbt-sqlparser";
+    let error_message = "UNCACHE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -195,7 +195,7 @@ fn test_uncache_errors() {
 fn test_start_errors() {
     let sql = "START the_query_to_run";
     let dialect: GenericDialect = GenericDialect {};
-    let error_message = "START is not supported by dbt-sqlparser";
+    let error_message = "START is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -203,7 +203,7 @@ fn test_start_errors() {
 fn test_begin_errors() {
     let sql = "BEGIN my_query";
     let dialect = GenericDialect {};
-    let error_message = "BEGIN is not supported by dbt-sqlparser";
+    let error_message = "BEGIN is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -211,7 +211,7 @@ fn test_begin_errors() {
 fn test_comment_errors() {
     let sql = "COMMENT on table is 'comment'";
     let dialect = GenericDialect {};
-    let error_message = "COMMENT is not supported by dbt-sqlparser";
+    let error_message = "COMMENT is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -219,7 +219,7 @@ fn test_comment_errors() {
 fn test_prepare_errors() {
     let sql = "PREPARE my_query";
     let dialect = GenericDialect {};
-    let error_message = "PREPARE is not supported by dbt-sqlparser";
+    let error_message = "PREPARE is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -227,7 +227,7 @@ fn test_prepare_errors() {
 fn test_savepoint_errors() {
     let sql = "SAVEPOINT my_query";
     let dialect = GenericDialect {};
-    let error_message = "SAVEPOINT is not supported by dbt-sqlparser";
+    let error_message = "SAVEPOINT is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -1781,7 +1781,7 @@ fn parse_array_agg_func() {
 fn parse_alter_errors() {
     let sql = "ALTER TABLE tab ADD COLUMN foo TEXT;";
     let dialect = GenericDialect {};
-    let error_message = "ALTER is not supported by dbt-sqlparser";
+    let error_message = "ALTER is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 
@@ -1789,7 +1789,7 @@ fn parse_alter_errors() {
 fn parse_drop_errors() {
     let sql = "DROP TABLE some_table_name;";
     let dialect = GenericDialect {};
-    let error_message = "DROP is not supported by dbt-sqlparser";
+    let error_message = "DROP is not supported by dbtranslate";
     check_error(sql, error_message, &dialect);
 }
 

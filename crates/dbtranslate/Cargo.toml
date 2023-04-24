@@ -23,6 +23,11 @@ syn = "1.0"
 proc-macro2 = "1.0"
 quote = "1.0"
 
+[dev-dependencies]
+simple_logger = "4.0"
+matches = "0.1"
+pretty_assertions = "1"
+
 [package.metadata.docs.rs]
 # Document these features on docs.rs
 features = ["serde", "visitor"]
