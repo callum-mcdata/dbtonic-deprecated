@@ -1,15 +1,5 @@
-[package]
-name = "dbtonic"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-clap = "3.0.0"
-glob = "0.3.0"
-rayon = "1.5.1"
-tempfile = "3.2.0"
-sqlparser = { path = "/Users/callummccann/repos/sqlparser-rs" }
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
-serde_json = "1.0.95"
-toml = "0.7.3"
+[workspace]
+members = [
+    "crates/dbtonic",
+    "crates/dbtranslate"
+]
