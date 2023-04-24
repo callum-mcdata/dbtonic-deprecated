@@ -2,10 +2,10 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 use std::borrow::Cow;
-use sqlparser::ast::Statement;
-use sqlparser::dialect::GenericDialect;
-use sqlparser::parser::Parser;
-use sqlparser::tokenizer::{Token,Tokenizer};
+use dbtranslate::ast::Statement;
+use dbtranslate::dialect::GenericDialect;
+use dbtranslate::parser::Parser;
+use dbtranslate::tokenizer::{Token,Tokenizer};
 use crate::parser::model_yaml::ModelYaml;
 
 
@@ -122,7 +122,7 @@ impl ModelNode {
         return Some(model_node)
     
     }
-
+ 
 }
 
 

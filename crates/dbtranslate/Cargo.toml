@@ -1,0 +1,33 @@
+[package]
+name = "dbtranslate"
+description = "A sqlparser for dbt based on sqlparser-rs. All credit to Andy Grove for getting this started"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "dbtranslate"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = []
+# Enable JSON output in the `cli` example:
+json_example = ["serde_json", "serde"]
+
+[dependencies]
+bigdecimal = { version = "0.3", features = ["serde"], optional = true }
+log = "0.4"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+syn = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+
+[dev-dependencies]
+simple_logger = "4.0"
+matches = "0.1"
+pretty_assertions = "1"
+
+[package.metadata.docs.rs]
+# Document these features on docs.rs
+features = ["serde", "visitor"]
