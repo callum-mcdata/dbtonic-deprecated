@@ -1,10 +1,11 @@
-use clap::{App, Arg, SubCommand};
-
 pub mod validation;
 pub mod cli;
 pub mod parser;
 pub mod rules;
 pub mod configuration;
+
+use clap::{App, Arg, SubCommand};
+use crate::validation::dbt_project_operations::DbtProject;
 
 pub fn run(args: Vec<String>) {
 
@@ -35,13 +36,17 @@ pub fn run(args: Vec<String>) {
             .required(true)
             .takes_value(true)
             .help("Defines the SQL model to get Tokens for")))
+    .subcommand(SubCommand::with_name("compile")
+        .about("Runs 'dbt compile' in the current directory"))
     ;
 
     let matches = app.get_matches_from_safe(args).unwrap_or_else(|e| {
         eprintln!("{}", e);
         std::process::exit(1);
     });
-    validation::ensure_dbt_project::validate();
+
+    let dbt_project = DbtProject{};
+    DbtProject::validate(&dbt_project);
 
     if let Some(_) = matches.subcommand_matches("hello") {
         println!("Hello person, I am dbtonic your friendly neighborhood dbt Connoisseur");
@@ -58,5 +63,12 @@ pub fn run(args: Vec<String>) {
         cli::get_tokens(get_tokens_matches);
     }
 
+    if let Some(_) = matches.subcommand_matches("compile") {
+        // Check if dbt is installed
+        DbtProject::check_dbt_version(&dbt_project);
+    
+        // Run 'dbt compile' in the current directory
+        DbtProject::run_dbt_compile(&dbt_project);
+    }
 
 }

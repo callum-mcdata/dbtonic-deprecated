@@ -1,3 +1,4 @@
+// dbtonic-cli/src/main.rs
 use std::env;
 
 fn main() {

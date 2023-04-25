@@ -45,6 +45,7 @@ mod tests {
                 ast: vec![],
                 tokens: vec![],
                 sql: String::new(),
+                compiled_sql: Some(String::new()),
                 yaml: Some(model_yaml),
                 errors: None
             },
@@ -64,6 +65,7 @@ mod tests {
                 ast: vec![],
                 tokens: vec![],
                 sql: String::new(),
+                compiled_sql: Some(String::new()),
                 yaml: None,
                 errors: None
             },

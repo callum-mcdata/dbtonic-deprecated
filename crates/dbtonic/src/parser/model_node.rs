@@ -36,6 +36,7 @@ pub struct ModelData {
     pub ast: Vec<Statement>,
     pub tokens: Vec<Token>,
     pub sql: String,
+    pub compiled_sql: Option<String>,
     pub yaml: Option<ModelYaml>,
     pub errors: Option<Vec<String>>,
 }
@@ -46,6 +47,7 @@ impl fmt::Debug for ModelData {
             .field("ast", &self.ast)
             .field("tokens", &self.tokens)
             .field("sql", &self.sql)
+            .field("compiled_sql", &self.sql)
             .field("yaml", &self.yaml)
             .field("errors", &self.errors)
             .finish()
@@ -57,6 +59,7 @@ impl fmt::Display for ModelData {
         writeln!(f, "AST: {:?}", self.ast)?;
         writeln!(f, "Tokens: {:?}", self.tokens)?;
         writeln!(f, "SQL: {}", self.sql)?;
+        writeln!(f, "Compiled SQL: {}", self.sql)?;
         writeln!(f, "YAML: {:?}", self.yaml)?;
         writeln!(f, "Errors: {:?}", self.errors)?;
         Ok(())
@@ -64,13 +67,14 @@ impl fmt::Display for ModelData {
 }
 
 impl ModelNode {
-    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, yaml: Option<ModelYaml>, errors: Option<Vec<String>>) -> Self {
+    pub fn create(model_name: String, ast: Vec<Statement>, tokens: Vec<Token>, sql: String, compiled_sql: Option<String>, yaml: Option<ModelYaml>, errors: Option<Vec<String>>) -> Self {
         ModelNode {
             model_name,
             data: ModelData {
                 ast,
                 tokens,
                 sql,
+                compiled_sql,
                 yaml,
                 errors,
             },
@@ -117,7 +121,7 @@ impl ModelNode {
             }
         };
     
-        let model_node = ModelNode::create(model_name, ast, tokens, sql , None, errors);
+        let model_node = ModelNode::create(model_name, ast, tokens, sql , None, None, errors);
     
         return Some(model_node)
     
