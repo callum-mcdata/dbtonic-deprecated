@@ -1,0 +1,11 @@
+[package]
+name = "dbtonic-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dbtonic = { path = "../dbtonic" }
+
+[[bin]]
+name = "dbtonic"
+path = "src/main.rs"
