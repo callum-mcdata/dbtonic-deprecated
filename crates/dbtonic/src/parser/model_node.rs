@@ -5,7 +5,8 @@ use std::borrow::Cow;
 use dbtranslate::ast::Statement;
 use dbtranslate::dialect::GenericDialect;
 use dbtranslate::parser::Parser;
-use dbtranslate::tokenizer::{Token,Tokenizer};
+use dbtranslate::tokenizer::{Tokenizer};
+use dbtranslate::tokens::{Token};
 use crate::parser::model_yaml::ModelYaml;
 
 

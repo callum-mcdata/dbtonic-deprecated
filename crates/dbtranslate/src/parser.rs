@@ -31,8 +31,9 @@ use crate::ast::*;
 use crate::dialect::*;
 use crate::keywords::{self, Keyword};
 use crate::tokenizer::*;
+use crate::tokens::*;
 use std::collections::HashMap;
-use crate::parser::query::{DbtConfigValue,DbtConfig, JinjaVariable, JinjaValue};
+use crate::parser::query::{DbtConfigValue,DbtConfig};
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
