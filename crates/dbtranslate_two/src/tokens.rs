@@ -3,12 +3,12 @@ use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum TokenType {
-    L_Paren,
-    R_Paren,
-    L_Bracket,
-    R_Bracket,
-    L_Brace,
-    R_Brace,
+    LParen,
+    RParen,
+    LBracket,
+    RBracket,
+    LBrace,
+    RBrace,
     Comma,
     Dot,
     Dash,
@@ -51,6 +51,16 @@ pub enum TokenType {
 
     BlockStart,
     BlockEnd,
+
+    // Jinja Tokens
+    JinjaBlockStart,
+    JinjaBlockEnd,
+    JinjaVariableStart,
+    JinjaVariableEnd,
+    JinjaCommentStart,
+    JinjaCommentEnd,
+    JinjaIteratorStart,
+    JinjaIteratorEnd,
 
     Space,
     Break,
@@ -312,7 +322,7 @@ pub enum TokenType {
 
 /// This is the overarching Token structure that contains all of the information
 /// about each token. All of the tokens combined are used to create the AST
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Token {
     pub token_type: TokenType,
     pub text: String,
@@ -435,5 +445,67 @@ impl Display for Token {
         ]
         .join(", ");
         write!(f, "<Token {}>", attributes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Token, TokenType};
+
+    #[test]
+    fn test_number() {
+        let number_token = Token::number(42);
+        assert_eq!(number_token.token_type, TokenType::Number);
+        assert_eq!(number_token.text, "42");
+        assert_eq!(number_token.line, 1);
+        assert_eq!(number_token.col, 1);
+        assert_eq!(number_token.end, 0);
+        assert!(number_token.comments.is_empty());
+    }
+
+    #[test]
+    fn test_string() {
+        let string_token = Token::string("hello".to_string());
+        assert_eq!(string_token.token_type, TokenType::String);
+        assert_eq!(string_token.text, "hello");
+        assert_eq!(string_token.line, 1);
+        assert_eq!(string_token.col, 1);
+        assert_eq!(string_token.end, 0);
+        assert!(string_token.comments.is_empty());
+    }
+
+    #[test]
+    fn test_identifier() {
+        let identifier_token = Token::identifier("my_var".to_string());
+        assert_eq!(identifier_token.token_type, TokenType::Identifier);
+        assert_eq!(identifier_token.text, "my_var");
+        assert_eq!(identifier_token.line, 1);
+        assert_eq!(identifier_token.col, 1);
+        assert_eq!(identifier_token.end, 0);
+        assert!(identifier_token.comments.is_empty());
+    }
+
+    #[test]
+    fn test_var() {
+        let var_token = Token::var("my_var".to_string());
+        assert_eq!(var_token.token_type, TokenType::Var);
+        assert_eq!(var_token.text, "my_var");
+        assert_eq!(var_token.line, 1);
+        assert_eq!(var_token.col, 1);
+        assert_eq!(var_token.end, 0);
+        assert!(var_token.comments.is_empty());
+    }
+
+    #[test]
+    fn test_start() {
+        let token = Token {
+            token_type: TokenType::Identifier,
+            text: "test".to_string(),
+            line: 1,
+            col: 1,
+            end: 5,
+            comments: vec![],
+        };
+        assert_eq!(token.start(), 1);
     }
 }

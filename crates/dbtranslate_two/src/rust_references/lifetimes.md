@@ -1,0 +1,3 @@
+In Rust, lifetimes are a way to express the scope of a reference so that the borrow checker can ensure references are valid and no memory is accessed after it has been freed.
+
+When you have a function that takes a reference as an input and returns a reference, the compiler needs to know how the input and output lifetimes relate to each other. In this case, the output reference's lifetime depends on the input reference's lifetime, because the output is a reference to a part of the input data structure.
