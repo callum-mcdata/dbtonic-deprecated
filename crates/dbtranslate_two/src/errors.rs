@@ -96,6 +96,8 @@ mod tests {
         assert_eq!(error.to_string(), "Unsupported operation");
     }
 
+    /// Tests that the ParseError variant of the DbtranslateError enum
+    /// returns what we expect when we provide it with a ParseErrorDetails struct.
    #[test]
     fn test_parse_error() {
         let parse_error = DbtranslateError::ParseError(

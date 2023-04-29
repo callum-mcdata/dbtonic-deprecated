@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+/// This is an enum that contains all of the different token types in dbtranslate.
+/// Each token type represents a different type of token that can be parsed.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, Hash)]
 pub enum TokenType {
     LParen,
     RParen,
@@ -49,18 +51,9 @@ pub enum TokenType {
     National,
     Damp,
 
+    /// Jina Tokens
     BlockStart,
     BlockEnd,
-
-    // Jinja Tokens
-    JinjaBlockStart,
-    JinjaBlockEnd,
-    JinjaVariableStart,
-    JinjaVariableEnd,
-    JinjaCommentStart,
-    JinjaCommentEnd,
-    JinjaIteratorStart,
-    JinjaIteratorEnd,
 
     Space,
     Break,
@@ -321,7 +314,8 @@ pub enum TokenType {
 }
 
 /// This is the overarching Token structure that contains all of the information
-/// about each token. All of the tokens combined are used to create the AST
+/// about each token. It contains the token type, the text, the line number,
+/// the column number, the end number, and the comments.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Token {
     pub token_type: TokenType,
@@ -432,7 +426,8 @@ impl Token {
     }
 }
 
-
+/// This is the Display implementation for the Token struct. It is used to
+/// display the Token in a readable format.
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let attributes = [
@@ -452,6 +447,9 @@ impl Display for Token {
 mod tests {
     use super::{Token, TokenType};
 
+    /// This is a test for the number function of the Token Struct.
+    /// It tests that the number function creates a Token instance with the
+    /// correct TokenType::Number variant and the correct text field.
     #[test]
     fn test_number() {
         let number_token = Token::number(42);
@@ -463,6 +461,9 @@ mod tests {
         assert!(number_token.comments.is_empty());
     }
 
+    /// This is a test for the string function of the Token Struct.
+    /// It tests that the string function creates a Token instance with the
+    /// correct TokenType::String variant and the correct text field.
     #[test]
     fn test_string() {
         let string_token = Token::string("hello".to_string());
@@ -474,6 +475,9 @@ mod tests {
         assert!(string_token.comments.is_empty());
     }
 
+    /// This is a test for the identifier function of the Token Struct.
+    /// It tests that the identifier function creates a Token instance with the
+    /// correct TokenType::Identifier variant and the correct text field.
     #[test]
     fn test_identifier() {
         let identifier_token = Token::identifier("my_var".to_string());
@@ -485,6 +489,9 @@ mod tests {
         assert!(identifier_token.comments.is_empty());
     }
 
+    /// This is a test for the var function of the Token Struct.
+    /// It tests that the var function creates a Token instance with the
+    /// correct TokenType::Var variant and the correct text field.
     #[test]
     fn test_var() {
         let var_token = Token::var("my_var".to_string());
@@ -496,6 +503,9 @@ mod tests {
         assert!(var_token.comments.is_empty());
     }
 
+    /// This is a test for the start function of the Token Struct. 
+    /// It tests that the start function calculates the correct starting
+    /// position of the token in the parsed text.
     #[test]
     fn test_start() {
         let token = Token {
@@ -508,4 +518,5 @@ mod tests {
         };
         assert_eq!(token.start(), 1);
     }
+
 }
