@@ -2,5 +2,6 @@
 members = [
     "crates/dbtonic",
     "crates/dbtonic_cli",
-    "crates/dbtranslate"
+    "crates/dbtranslate",
+    "crates/dbtranslate_two"
 ]
