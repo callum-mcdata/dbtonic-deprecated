@@ -495,4 +495,18 @@ mod tests {
         assert_eq!(tokenizer.tokens[0].comments, tokenizer.comments);
     }
 
+    #[test]
+    fn test_scan_var() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("SELECT * FROM table;".to_string());
+
+        // Assuming that the tokenizer is at the position of the keyword "SELECT"
+        tokenizer.scan_var();
+        dbg!(&tokenizer.tokens);
+
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::Select);
+        assert_eq!(tokenizer.tokens[0].text, "SELECT");
+    }
+
 }
