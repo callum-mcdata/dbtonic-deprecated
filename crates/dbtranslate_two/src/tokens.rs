@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::collections::{HashMap, HashSet};
-use either::Either;
 
 /// This is an enum that contains all of the different token types in dbtranslate.
 /// Each token type represents a different type of token that can be parsed.
@@ -779,15 +778,15 @@ pub fn white_space() -> HashMap<String, TokenType> {
     white_space
 }
 
-pub fn comments() -> HashMap<String, Option<String>> {
+pub fn comment_tokens() -> HashMap<String, Option<String>> {
 
-    let comments = maplit::hashmap! {
+    let comment_tokens = maplit::hashmap! {
         "--".to_string() => None,
         "/*".to_string() => Some("*/".to_string()),
         "{#".to_string() => Some("#}".to_string()),
     };
 
-    comments
+    comment_tokens
 }
 
 pub fn commands() -> HashSet<TokenType> {
