@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use either::Either;
 use crate::tokens::{Token, TokenType, single_tokens, keywords, comment_tokens, white_space};
 
 
@@ -13,12 +12,12 @@ pub struct Tokenizer {
     white_space: HashMap<String, TokenType>,
     comment_tokens: HashMap<String, Option<String>>,
     /// Empty vectors
-    bit_strings: Vec<Either<String, (String, String)>>,
-    byte_strings: Vec<Either<String, (String, String)>>,
-    hex_strings: Vec<Either<String, (String, String)>>,
-    identifiers: Vec<Either<String, (String, String)>>,
+    bit_strings: HashMap<String, String>,
+    byte_strings: HashMap<String, String>,
+    hex_strings: HashMap<String, String>,
+    identifiers: HashMap<String, String>,
     identifier_escapes: Vec<String>,
-    quotes: Vec<Either<String, (String, String)>>,
+    quotes: HashMap<String, String>,
     string_escapes: Vec<String>,
     var_single_tokens: HashSet<String>,
     comments: Vec<String>,
@@ -48,12 +47,12 @@ impl Tokenizer {
 
     /// This is the constructor method for the Tokenizer struct.
     pub fn new() -> Self {    
-        let bit_strings = vec![];
-        let byte_strings = vec![];
-        let hex_strings = vec![];
-        let identifiers = vec![Either::Left("\"".to_string())];
+        let bit_strings = HashMap::new();
+        let byte_strings = HashMap::new();
+        let hex_strings = HashMap::new();
+        let identifiers = HashMap::new();
         let identifier_escapes = vec!["\"".to_string()];
-        let quotes = vec![Either::Left("'".to_string())];
+        let quotes = HashMap::new();
         let string_escapes = vec!["'".to_string()];
         let var_single_tokens = HashSet::new();
         let tokenizer = Tokenizer {
@@ -104,11 +103,13 @@ impl Tokenizer {
         self.start = 0;
         self.current = 0;
         self.line = 1;
-        self.col = 1;
+        self.col = 0;
         self.end = false;
         self.prev_token_line = -1;
         self.prev_token_comments.clear();
         self.prev_token_type = None;
+        // Pre-load all the things we need to tokenize
+        self.advance(1);
     }
 
     pub fn reset(&mut self) {
@@ -128,6 +129,34 @@ impl Tokenizer {
         self.prev_token_type = None;
     }
 
+    /// This function advances through the characters in the SQL string. It updates
+    /// the state of the tokenizer struct.
+    fn advance(&mut self, i: usize) {
+        if let Some(token_type) = self.white_space.get(&self.char.to_string()) {
+            if *token_type == TokenType::Break {
+                self.col = 1;
+                self.line += 1;
+            } else {
+                self.col += i;
+            }
+        } else {
+            // We use this to account for all chars that aren't in whitespace
+            self.col += i;
+        }
+
+        self.current += i;
+        self.end = self.current >= self.size;
+        // The nth() method returns an Option<char>, not a plain char. This is because
+        // the iterator might not have an nth element if the index is out of bounds. 
+        // To account for this we use unwrap_or with a default value of null char.
+        self.char = self.sql.chars().nth(self.current-1).unwrap_or('\0');
+        if self.end {
+            self.peek = '\0';
+        } else {
+            self.peek = self.sql.chars().nth(self.current).unwrap_or('\0');
+        }
+    }
+
     /// The `text` method returns a slice of the SQL string from the start to 
     /// the current position.
     fn text(&self) -> &str {
@@ -143,11 +172,13 @@ impl Tokenizer {
         self.prev_token_type = Some(token_type);
 
         let token_text = text.unwrap_or_else(|| self.text().to_string());
+        let token_len = token_text.len();
         let token = Token {
             token_type,
             text: token_text,
             line: self.line,
             col: self.col,
+            start: if self.current >= token_len { self.current - token_len } else { 0 },
             end: self.current,
             comments: self.comments.clone(),
         };
@@ -193,34 +224,6 @@ impl Tokenizer {
             } else {
                 ""
             }
-        }
-    }
-
-    /// This function advances through the characters in the SQL string. It updates
-    /// the state of the tokenizer struct.
-    fn advance(&mut self, i: usize) {
-        if let Some(token_type) = self.white_space.get(&self.char.to_string()) {
-            if *token_type == TokenType::Break {
-                self.col = 1;
-                self.line += 1;
-            } else {
-                self.col += i;
-            }
-        } else {
-            // We use this to account for all chars that aren't in whitespace
-            self.col += i;
-        }
-
-        self.current += i;
-        self.end = self.current >= self.size;
-        // The nth() method returns an Option<char>, not a plain char. This is because
-        // the iterator might not have an nth element if the index is out of bounds. 
-        // To account for this we use unwrap_or with a default value of null char.
-        self.char = self.sql.chars().nth(self.current - 1).unwrap_or('\0');
-        if self.end {
-            self.peek = '\0';
-        } else {
-            self.peek = self.sql.chars().nth(self.current).unwrap_or('\0');
         }
     }
 
@@ -278,17 +281,17 @@ impl Tokenizer {
         let mut text = String::new();
     
         loop {
-            let stripped_char = self.peek.to_string();
-            
             // Check if the character is not a null character and not a key in single_tokens
-            if self.peek != '\0' && !self.single_tokens.contains_key(&stripped_char) {
+            if self.peek != '\0' 
+                && !self.single_tokens.contains_key(&self.peek.to_string()) 
+                && !self.peek.is_whitespace() 
+            {
                 text.push(self.peek);
                 self.advance(1);
             } else {
                 break;
             }
         }
-    
         text
     }
 
@@ -296,6 +299,120 @@ impl Tokenizer {
     /// SCANNING OPERATIONS
     ////////////
     
+
+    /// This function takes a quote parameter and checks if it's a valid quote 
+    /// start using _QUOTES. If it's not a valid quote, it returns False. Otherwise,
+    /// it advances the tokenizer, extracts the string content until the quote end,
+    /// and then adds a new token with the TokenType.NATIONAL or TokenType.STRING 
+    /// type, depending on the quote type. Finally, it returns True to indicate 
+    /// that a string has been scanned successfully.
+    fn scan_string(&mut self, quote: &str) -> bool {
+
+        // We use a block here to limit the scope of the immutable borrow.
+        let (quote_end, quote_len) = {
+            let quote_end = self.quotes.get(quote).map_or_else(|| quote.to_string(), |s| s.clone());
+            let quote_len = quote.len();
+            (quote_end, quote_len)
+        };
+    
+        self.advance(quote_len);
+        let result = self.extract_string(quote_end.as_str());
+        match result {
+            Ok(text) => {
+                let token_type = if quote.chars().next().unwrap().is_uppercase() {
+                    TokenType::National
+                } else {
+                    TokenType::String
+                };
+                self.add_token(token_type, Some(text));
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// This function processes formatted strings such as hexadecimal strings, 
+    /// bit strings, and byte strings. It checks if the string matches any of 
+    /// the formats, extracts the string content, and then adds a token with 
+    /// the appropriate type.
+    fn scan_formatted_string(&mut self, string_start: &str) -> bool {
+
+        let (delimiters, token_type, base) = if self.hex_strings.contains_key(string_start) {
+            (&self.hex_strings, TokenType::HexString, Some(16))
+        } else if self.bit_strings.contains_key(string_start) {
+            (&self.bit_strings, TokenType::BitString, Some(2))
+        } else if self.byte_strings.contains_key(string_start) {
+            (&self.byte_strings, TokenType::ByteString, None)
+        } else {
+            return false;
+        };
+    
+        let string_end = delimiters.get(string_start).cloned().unwrap_or_else(|| string_start.to_string());
+        let string_start_len = string_start.len();
+        dbg!(&string_start_len);
+
+        self.advance(string_start_len);
+
+        dbg!(&self);
+        dbg!(&string_end);
+
+        let text = self.extract_string(&string_end).unwrap();
+        dbg!(&text);
+
+        let final_text = if let Some(base) = base {
+            match i64::from_str_radix(&text, base) {
+                Ok(value) => value.to_string(),
+                Err(_) => {
+                    panic!(
+                        "Numeric string contains invalid characters from {}:{}",
+                        self.line, self.start
+                    )
+                }
+            }
+        } else {
+            text
+        };
+    
+        self.add_token(token_type, Some(final_text));
+        true
+    }    
+    
+    
+    /// This function accepts an identifier_end parameter and processes the 
+    /// input SQL accordingly. It builds an identifier token, handling 
+    /// escape characters if needed, and adds it to the list of tokens.
+    fn scan_identifier(&mut self, identifier_end: &str) -> Result<(), String> {
+        let mut text = String::new();
+        let identifier_end_is_escape = self.identifier_escapes.contains(&identifier_end.to_string());
+    
+        loop {
+            if self.end {
+                return Err(format!(
+                    "Missing {} from {}:{}",
+                    identifier_end, self.line, self.start
+                ));
+            }
+    
+            self.advance(1);
+    
+            if self.char.to_string() == identifier_end {
+                if identifier_end_is_escape && self.peek.to_string() == identifier_end {
+                    text.push_str(identifier_end);
+                    self.advance(1);
+                    continue;
+                }
+    
+                break;
+            }
+    
+            text.push(self.char);
+        }
+    
+        self.add_token(TokenType::Identifier, Some(text));
+        Ok(())
+    }
+    
+
     /// The `scan_var` function scans a variable, keyword, or parameter in the input SQL string.
     /// It advances through the characters until it encounters a single token character or an
     /// empty/null character. The function then adds a token with the appropriate type to the
@@ -318,6 +435,26 @@ impl Tokenizer {
         };
 
         self.add_token(token_type, None);
+    }
+
+    /// This function scans a hex string and adds it as a token. The function 
+    /// advances the tokenizer by one character, extracts the value of the hex 
+    /// string, and attempts to convert the value to an integer using base 16. 
+    /// If successful, the function adds a HEX_STRING token with the converted 
+    /// value. If the conversion fails, it adds an IDENTIFIER token instead.
+    fn scan_hex(&mut self) -> () {
+        self.advance(1);
+        let value = self.extract_value();
+        dbg!(&value);
+    
+        match i64::from_str_radix(&value, 16) {
+            Ok(value) => {
+                self.add_token(TokenType::HexString, Some(value.to_string()));
+            }
+            Err(_) => {
+                self.add_token(TokenType::Identifier, None);
+            }
+        }
     }
 
     // fn delimeter_list_to_dict(
@@ -438,7 +575,7 @@ mod tests {
         assert_eq!(tokenizer.char, 'S');
         assert_eq!(tokenizer.peek, 'E');
         assert_eq!(tokenizer.start, 0);
-        assert_eq!(tokenizer.current, 0);
+        assert_eq!(tokenizer.current, 1);
         assert_eq!(tokenizer.line, 1);
         assert_eq!(tokenizer.col, 1);
         assert_eq!(tokenizer.end, false);
@@ -457,7 +594,7 @@ mod tests {
         tokenizer.add_sql("SELECT * FROM table WHERE name = 'John O Connor'".to_string());  
 
         let delimiter = "'";
-        tokenizer.advance(35);
+        tokenizer.advance(34);
         let extracted_string = tokenizer.extract_string(delimiter).unwrap();
         assert_eq!(extracted_string, "John O Connor");
     }
@@ -466,7 +603,7 @@ mod tests {
     fn test_extract_value() {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("SELECT * FROM table WHERE value=42".to_string());
-        tokenizer.advance(32); // Move the tokenizer to the position right before the value 42
+        tokenizer.advance(31); // Move the tokenizer to the position right before the value 42
 
         let extracted_value = tokenizer.extract_value();
         assert_eq!(extracted_value, "42");
@@ -495,6 +632,11 @@ mod tests {
         assert_eq!(tokenizer.tokens[0].comments, tokenizer.comments);
     }
 
+    /// This test creates a Tokenizer instance, adds an SQL query to it, and 
+    /// assumes that the tokenizer is at the position of the keyword "SELECT". 
+    /// It then calls the scan_var function to tokenize the keyword and checks 
+    /// if the token was added correctly by comparing the token's properties 
+    /// with the expected values.
     #[test]
     fn test_scan_var() {
         let mut tokenizer = Tokenizer::new();
@@ -502,11 +644,123 @@ mod tests {
 
         // Assuming that the tokenizer is at the position of the keyword "SELECT"
         tokenizer.scan_var();
-        dbg!(&tokenizer.tokens);
 
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::Select);
         assert_eq!(tokenizer.tokens[0].text, "SELECT");
+
+        tokenizer.advance(9);
+
+        tokenizer.scan_var();
     }
+
+    #[test]
+    fn test_scan_identifier() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("SELECT * FROM database.schema.table".to_string());
+
+        tokenizer.advance(13);
+
+        tokenizer.scan_identifier(".").unwrap();
+
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::Identifier);
+        assert_eq!(tokenizer.tokens[0].text, "database");
+        assert_eq!(tokenizer.tokens[0].line, 1);
+        assert_eq!(tokenizer.tokens[0].col, 23);
+        assert_eq!(tokenizer.tokens[0].start, 15);
+        assert_eq!(tokenizer.tokens[0].end, 23);
+
+        tokenizer.scan_identifier(".").unwrap();
+
+        assert_eq!(tokenizer.tokens.len(), 2);
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
+        assert_eq!(tokenizer.tokens[1].text, "schema");
+        assert_eq!(tokenizer.tokens[1].line, 1);
+        assert_eq!(tokenizer.tokens[1].col, 30);
+        assert_eq!(tokenizer.tokens[1].start, 24);
+        assert_eq!(tokenizer.tokens[1].end, 30);
+
+    }
+
+    /// This unit test adds a SQL string with a single-quoted string and then 
+    /// calls scan_string to ensure that the string is scanned correctly and that
+    /// the result returns true.
+    #[test]
+    fn test_scan_string() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("SELECT 'Hello, World!'".to_string());
+        tokenizer.advance(7);
+
+        let result = tokenizer.scan_string("'");
+        assert!(result);
+
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::String);
+        assert_eq!(tokenizer.tokens[0].text, "Hello, World!");
+        assert_eq!(tokenizer.tokens[0].line, 1);
+        assert_eq!(tokenizer.tokens[0].col, 22);
+        assert_eq!(tokenizer.tokens[0].start, 9);
+        assert_eq!(tokenizer.tokens[0].end, 22);
+    }
+
+    // TODO: Fix this as it is broken
+    // I believe it is because the tokenizer is not recognizing the first "'" as 
+    // being part of the string.
+    // This implementation converts the formatted string to the appropriate type
+    // and adds a token based on the extracted content. The unit test verifies 
+    // the function for different formatted string types.
+    // #[test]
+    // fn test_scan_formatted_string() {
+    //     let mut tokenizer = Tokenizer::new();
+    //     tokenizer.bit_strings.insert("b".to_string(), "'".to_string());
+    //     tokenizer.byte_strings.insert("E".to_string(), "'".to_string());
+    //     tokenizer.hex_strings.insert("X".to_string(), "'".to_string());
+
+    //     tokenizer.add_sql("X'1A2B' b'1100' E'\\\\\\''".to_string());
+
+    //     assert!(tokenizer.scan_formatted_string("X"));
+    //     assert_eq!(tokenizer.tokens.len(), 1);
+    //     assert_eq!(tokenizer.tokens[0].token_type, TokenType::HexString);
+    //     assert_eq!(tokenizer.tokens[0].text, "6699");
+
+    //     tokenizer.advance(4);
+
+    //     assert!(tokenizer.scan_formatted_string("b"));
+    //     assert_eq!(tokenizer.tokens.len(), 2);
+    //     assert_eq!(tokenizer.tokens[1].token_type, TokenType::BitString);
+    //     assert_eq!(tokenizer.tokens[1].text, "12");
+
+    //     tokenizer.advance(4);
+
+    //     assert!(tokenizer.scan_formatted_string("E"));
+    //     assert_eq!(tokenizer.tokens.len(), 3);
+    //     assert_eq!(tokenizer.tokens[2].token_type, TokenType::String);
+    //     assert_eq!(tokenizer.tokens[2].text, "\\\\\\'");
+    // }
+
+    /// This test checks whether the scan_hex function correctly identifies and 
+    /// processes valid and invalid hex strings. The test adds a valid hex string 
+    /// 0x1A2B and an invalid hex string 0xInvalid to the tokenizer. It checks 
+    /// if the function adds a HEX_STRING token for the valid hex string and an 
+    /// IDENTIFIER token for the invalid one.
+    #[test]
+    fn test_scan_hex() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("0x1A2B 0xInvalid".to_string());
+        dbg!(&tokenizer);
+
+        tokenizer.scan_hex();
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::HexString);
+        assert_eq!(tokenizer.tokens[0].text, "6699");
+
+        tokenizer.advance(5);
+
+        tokenizer.scan_hex();
+        assert_eq!(tokenizer.tokens.len(), 2);
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
+    }
+
 
 }

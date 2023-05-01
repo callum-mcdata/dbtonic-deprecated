@@ -323,6 +323,7 @@ pub struct Token {
     pub text: String,
     pub line: usize,
     pub col: usize,
+    pub start: usize,
     pub end: usize,
     pub comments: Vec<String>,
 }
@@ -341,12 +342,14 @@ impl Token {
     ) -> Self {
         let size = text.len();
         let end = if end > 0 { end } else { size };
+        let start = end - size;
 
         Self {
             token_type,
             text,
             line,
             col,
+            start,
             end,
             comments,
         }
@@ -373,6 +376,7 @@ impl Token {
             text: number.to_string(),
             line: 1,
             col: 1,
+            start: 0,
             end: 0,
             comments: vec![],
         }
@@ -389,6 +393,7 @@ impl Token {
             text: string,
             line: 1,
             col: 1,
+            start: 0,
             end: 0,
             comments: vec![],
         }
@@ -405,6 +410,7 @@ impl Token {
             text: identifier,
             line: 1,
             col: 1,
+            start: 0,
             end: 0,
             comments: vec![],
         }
@@ -421,6 +427,7 @@ impl Token {
             text: var,
             line: 1,
             col: 1,
+            start: 0,
             end: 0,
             comments: vec![],
         }
@@ -436,6 +443,7 @@ impl Display for Token {
             format!("text: {}", self.text),
             format!("line: {}", self.line),
             format!("col: {}", self.col),
+            format!("start: {}", self.start()),
             format!("end: {}", self.end),
             format!("comments: {:?}", self.comments),
         ]
@@ -871,10 +879,11 @@ mod tests {
             text: "test".to_string(),
             line: 1,
             col: 1,
+            start: 1,
             end: 5,
             comments: vec![],
         };
-        assert_eq!(token.start(), 1);
+        assert_eq!(token.start, 1);
     }
 
 }
