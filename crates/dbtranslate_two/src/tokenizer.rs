@@ -187,29 +187,9 @@ impl Tokenizer {
         self.comments.clear();
     }
 
-
-
     ///////////
     // STRING OPERATIONS 
     //////////
-
-    // The function accepts a string reference &str for the SQL string and 
-    // returns a Result containing a Vec<Token> or an error.
-    // pub fn tokenize(&mut self, sql: &str) -> Result<Vec<Token>, String> {
-    //     self.reset();
-    //     self.sql = sql.to_string();
-    //     self.size = sql.len();
-
-    //     match self.scan() {
-    //         Ok(()) => Ok(self.tokens.clone()),
-    //         Err(_) => {
-    //             let start = self.current.saturating_sub(50);
-    //             let end = (self.current + 50).min(self.size);
-    //             let context = &self.sql[start..end];
-    //             Err(format!("Error tokenizing '{}'", context))
-    //         }
-    //     }
-    // }
 
     fn chars(&self, size: usize) -> &str {
         if self.current == 0 {
@@ -521,7 +501,7 @@ impl Tokenizer {
         } {}
     
         dbg!(&self.char);
-        let number_text = self.extract_value();
+        let number_text = self.get_text().to_string();
         dbg!(&number_text);
         let mut literal = String::new();
     
@@ -531,6 +511,8 @@ impl Tokenizer {
         }
     
         let token_type = self.numeric_literals.get(&literal).and_then(|k| self.keywords.get(k).cloned());
+
+        dbg!(&literal);
 
         if let Some(token_type) = token_type {
             self.add_token(TokenType::Number, Some(number_text));
@@ -890,14 +872,15 @@ mod tests {
         tokenizer.add_sql("1234 56.78 9.0e+1 0xEFF 0b1011 12::integer".to_string());
     
         assert!(tokenizer.scan_number());
-        dbg!(&tokenizer);
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::Number);
         assert_eq!(tokenizer.tokens[0].text, "1234");
     
-        tokenizer.advance(5);
+        // tokenizer.advance(5);
     
+        // dbg!(&tokenizer);
         assert!(tokenizer.scan_number());
+        // dbg!(&tokenizer);
         assert_eq!(tokenizer.tokens.len(), 2);
         assert_eq!(tokenizer.tokens[1].token_type, TokenType::Number);
         assert_eq!(tokenizer.tokens[1].text, "56.78");
