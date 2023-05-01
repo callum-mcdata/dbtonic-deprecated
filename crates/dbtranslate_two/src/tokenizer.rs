@@ -457,6 +457,27 @@ impl Tokenizer {
         }
     }
 
+    /// This function attempts to parse a binary string, advancing one character
+    /// to skip the initial b or B character. Then, it extracts the value by 
+    /// calling extract_value. It tries to convert the value to an integer using 
+    /// base 2. If successful, it adds a TokenType::BitString token to the 
+    /// tokens list with the integer value as its text. If the conversion fails, 
+    /// it adds a TokenType::Identifier token instead.
+    fn scan_bits(&mut self) -> bool {
+        self.advance(1);
+        let value = self.extract_value();
+        match i64::from_str_radix(&value, 2) {
+            Ok(parsed_value) => {
+                self.add_token(TokenType::BitString, Some(parsed_value.to_string()));
+                true
+            }
+            Err(_) => {
+                self.add_token(TokenType::Identifier, None);
+                false
+            }
+        }
+    }
+
     // fn delimeter_list_to_dict(
     //     list: Vec<Either<String, (String, String)>>,
     // ) -> HashMap<String, String> {
@@ -761,6 +782,27 @@ mod tests {
         assert_eq!(tokenizer.tokens.len(), 2);
         assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
     }
+
+    /// This test case checks that the scan_bits function can successfully parse
+    /// a valid binary string and also handles the case where the binary string 
+    /// contains invalid characters.
+    #[test]
+    fn test_scan_bits() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("b'1010' b'invalid'".to_string());
+    
+        assert!(tokenizer.scan_bits());
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::BitString);
+        assert_eq!(tokenizer.tokens[0].text, "10");
+    
+        tokenizer.advance(5);
+    
+        assert!(!tokenizer.scan_bits());
+        assert_eq!(tokenizer.tokens.len(), 2);
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
+    }
+    
 
 
 }
