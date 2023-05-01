@@ -159,7 +159,7 @@ impl Tokenizer {
 
     /// The `text` method returns a slice of the SQL string from the start to 
     /// the current position.
-    fn text(&self) -> &str {
+    fn get_text(&self) -> &str {
         &self.sql[self.start..self.current]
     }
 
@@ -171,7 +171,7 @@ impl Tokenizer {
         self.prev_token_comments = self.comments.clone();
         self.prev_token_type = Some(token_type);
 
-        let token_text = text.unwrap_or_else(|| self.text().to_string());
+        let token_text = text.unwrap_or_else(|| self.get_text().to_string());
         let token_len = token_text.len();
         let token = Token {
             token_type,
@@ -430,7 +430,7 @@ impl Tokenizer {
         let token_type = if self.prev_token_type == Some(TokenType::Parameter) {
             TokenType::Var
         } else {
-            let text_upper = self.text().to_uppercase();
+            let text_upper = self.get_text().to_uppercase();
             self.keywords.get(&text_upper).cloned().unwrap_or(TokenType::Var)
         };
 
@@ -442,7 +442,7 @@ impl Tokenizer {
     /// string, and attempts to convert the value to an integer using base 16. 
     /// If successful, the function adds a HEX_STRING token with the converted 
     /// value. If the conversion fails, it adds an IDENTIFIER token instead.
-    fn scan_hex(&mut self) -> () {
+    fn scan_hex(&mut self) -> bool {
         self.advance(1);
         let value = self.extract_value();
         dbg!(&value);
@@ -450,9 +450,11 @@ impl Tokenizer {
         match i64::from_str_radix(&value, 16) {
             Ok(value) => {
                 self.add_token(TokenType::HexString, Some(value.to_string()));
+                true
             }
             Err(_) => {
                 self.add_token(TokenType::Identifier, None);
+                false
             }
         }
     }
@@ -477,6 +479,72 @@ impl Tokenizer {
             }
         }
     }
+
+    /// This function attempts to parse a number. If the current character is '0',
+    /// it checks if the next character is 'B' or 'X' for binary or hexadecimal 
+    /// numbers, respectively, and calls the appropriate function. It then parses
+    /// decimal and scientific notation numbers. If the number is followed by an 
+    /// identifier, it adds the tokens accordingly, otherwise, it adds a 
+    /// TokenType::Number token.
+    fn scan_number(&mut self) -> bool {
+        if self.char == '0' {
+            let peek = self.peek.to_uppercase().to_string();
+            if peek == "B" {
+                return self.scan_bits();
+            } else if peek == "X" {
+                return self.scan_hex();
+            }
+        }
+    
+        let mut decimal = false;
+        let mut scientific = 0;
+    
+        while {
+            if self.peek.is_digit(10) {
+                self.advance(1);
+                true
+            } else if self.peek == '.' && !decimal {
+                decimal = true;
+                self.advance(1);
+                true
+            } else if (self.peek == '-' || self.peek == '+') && scientific == 1 {
+                scientific += 1;
+                self.advance(1);
+                true
+            } else if self.peek.to_uppercase().to_string() == "E" && scientific == 0 {
+                scientific += 1;
+                self.advance(1);
+                true
+            } else {
+                false
+            }
+        } {}
+    
+        dbg!(&self.char);
+        let number_text = self.extract_value();
+        dbg!(&number_text);
+        let mut literal = String::new();
+    
+        while !self.peek.is_whitespace() && !self.single_tokens.contains_key(&self.peek.to_string()) {
+            literal.push(self.peek.to_uppercase().next().unwrap());
+            self.advance(1);
+        }
+    
+        let token_type = self.numeric_literals.get(&literal).and_then(|k| self.keywords.get(k).cloned());
+
+        if let Some(token_type) = token_type {
+            self.add_token(TokenType::Number, Some(number_text));
+            self.add_token(TokenType::DColon, Some("::".to_string()));
+            self.add_token(token_type.clone(), Some(literal));
+        } else if self.identifier_can_start_with_digit {
+            self.add_token(TokenType::Var, None);
+        } else {
+            self.add_token(TokenType::Number, Some(number_text));
+        }
+    
+        true
+    }
+    
 
     // fn delimeter_list_to_dict(
     //     list: Vec<Either<String, (String, String)>>,
@@ -586,7 +654,7 @@ mod tests {
     /// updated correctly based on the provided SQL string.
     #[test]
     fn test_add_sql() {
-        let mut tokenizer = Tokenizer::new();
+        let mut tokenizer: Tokenizer = Tokenizer::new();
 
         let sql = "SELECT * FROM table;".to_string();
         tokenizer.add_sql(sql);
@@ -603,6 +671,17 @@ mod tests {
         assert_eq!(tokenizer.prev_token_line, -1);
         assert!(tokenizer.prev_token_comments.is_empty());
         assert_eq!(tokenizer.prev_token_type, None);
+    }
+
+    #[test]
+    fn test_get_text() {
+        let mut tokenizer: Tokenizer = Tokenizer::new();
+        let sql = "SELECT * FROM table;".to_string();
+        tokenizer.add_sql(sql);
+        tokenizer.advance(5);
+        assert_eq!(tokenizer.get_text(), "SELECT");
+        tokenizer.advance(1);
+        assert_eq!(tokenizer.get_text(), "SELECT ");
     }
 
     // TODO: I don't think extract string fully works yet but I am burned on it
@@ -801,6 +880,58 @@ mod tests {
         assert!(!tokenizer.scan_bits());
         assert_eq!(tokenizer.tokens.len(), 2);
         assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
+    }
+    
+    /// This test checks various types of number inputs, including integers, 
+    /// decimals, scientific notation, and numbers with numeric literals.
+    #[test]
+    fn test_scan_number() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql("1234 56.78 9.0e+1 0xEFF 0b1011 12::integer".to_string());
+    
+        assert!(tokenizer.scan_number());
+        dbg!(&tokenizer);
+        assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::Number);
+        assert_eq!(tokenizer.tokens[0].text, "1234");
+    
+        tokenizer.advance(5);
+    
+        assert!(tokenizer.scan_number());
+        assert_eq!(tokenizer.tokens.len(), 2);
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::Number);
+        assert_eq!(tokenizer.tokens[1].text, "56.78");
+    
+        tokenizer.advance(6);
+    
+        assert!(tokenizer.scan_number());
+        assert_eq!(tokenizer.tokens.len(), 3);
+        assert_eq!(tokenizer.tokens[2].token_type, TokenType::Number);
+        assert_eq!(tokenizer.tokens[2].text, "9.0e+1");
+    
+        tokenizer.advance(6);
+    
+        assert!(tokenizer.scan_number());
+        assert_eq!(tokenizer.tokens.len(), 4);
+        assert_eq!(tokenizer.tokens[3].token_type, TokenType::HexString);
+        assert_eq!(tokenizer.tokens[3].text, "3839");
+    
+        tokenizer.advance(5);
+    
+        assert!(tokenizer.scan_number());
+        assert_eq!(tokenizer.tokens.len(), 5);
+        assert_eq!(tokenizer.tokens[4].token_type, TokenType::BitString);
+        assert_eq!(tokenizer.tokens[4].text, "11");
+    
+        tokenizer.advance(6);
+    
+        assert!(tokenizer.scan_number());
+        assert_eq!(tokenizer.tokens.len(), 7);
+        assert_eq!(tokenizer.tokens[5].token_type, TokenType::Number);
+        assert_eq!(tokenizer.tokens[5].text, "12");
+        assert_eq!(tokenizer.tokens[6].token_type, TokenType::DColon);
+        assert_eq!(tokenizer.tokens[7].token_type, TokenType::Int);
+        assert_eq!(tokenizer.tokens[7].text, "integer");
     }
     
 
