@@ -1,6 +1,23 @@
 use std::fmt;
 
 #[derive(Debug, Clone)]
+pub enum TokenizerError {
+    TokenizationError { context: String, source: String },
+}
+
+impl fmt::Display for TokenizerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TokenizerError::TokenizationError { context, source } => {
+                write!(f, "Error tokenizing '{}': {}", context, source)
+            }
+        }
+    }
+}
+
+impl std::error::Error for TokenizerError {}
+
+#[derive(Debug, Clone)]
 pub enum ErrorLevel {
     /// Ignore all errors.
     Ignore,

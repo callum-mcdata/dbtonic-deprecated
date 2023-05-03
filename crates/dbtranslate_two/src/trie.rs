@@ -108,7 +108,6 @@ pub enum TrieResult {
     Found,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

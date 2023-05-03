@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use crate::tokens::{Token, TokenType, single_tokens, keywords, comment_tokens, white_space};
 
-
 /// This is the overall struct that contains all of the information about 
 /// tokenizing strings. 
 #[derive(Debug)]
@@ -20,10 +19,8 @@ pub struct Tokenizer {
     quotes: HashMap<String, String>,
     string_escapes: Vec<String>,
     var_single_tokens: HashSet<String>,
-    comments: Vec<String>,
     /// Random
     numeric_literals: HashMap<String, String>,
-    encode: Option<String>,
     identifier_can_start_with_digit: bool,
     /// State properties
     sql: String,
@@ -33,7 +30,7 @@ pub struct Tokenizer {
     current: usize,
     line: usize,
     col: usize,
-    sql_comments: Vec<String>,
+    comments: Vec<String>,
     char: char,
     end: bool,
     peek: char,
@@ -70,10 +67,8 @@ impl Tokenizer {
             quotes,
             string_escapes,
             var_single_tokens,
-            comments: Vec::new(),
             // ... add other field assignments
             numeric_literals: HashMap::new(),
-            encode: None,
             identifier_can_start_with_digit: false,
             /// State management
             sql: String::new(),
@@ -83,7 +78,7 @@ impl Tokenizer {
             current: 0,
             line: 1,
             col: 1,
-            sql_comments: Vec::new(),
+            comments: Vec::new(),
             char: '\0',
             end: false,
             peek: '\0',
@@ -109,7 +104,7 @@ impl Tokenizer {
         self.prev_token_comments.clear();
         self.prev_token_type = None;
         // Pre-load all the things we need to tokenize
-        self.advance(1);
+        // self.advance(1);
     }
 
     pub fn reset(&mut self) {
@@ -181,12 +176,43 @@ impl Tokenizer {
         // we may need to implement additional logic to handle that.
     }
 
+    /// Returns a list of tokens corresponding to the SQL string `sql`.
+    pub fn tokenize(&mut self, sql: &str) -> Vec<Token> {
+        self.reset();
+        self.add_sql(sql.to_string());
 
-    /// The `text` method returns a slice of the SQL string from the start to 
-    /// the current position.
-    fn get_text(&self) -> &str {
-        &self.sql[self.start..self.current]
+        self.scan();
+
+        self.tokens.clone()
     }
+
+    /// This function scans the current character
+    pub fn scan(&mut self) {
+        while self.size > 0 && !self.end {
+            self.start = self.current;
+            self.advance(1);
+
+            let current_char = self.char;
+
+            if current_char == '\0' {
+                break;
+            }
+
+            if let Some(token_type) = self.get_token_type_for_char(current_char) {
+                match token_type.as_str() {
+                    "Number" => self.scan_number(),
+                    id => self.scan_identifier(id),
+                };
+            } else if !self.white_space.contains_key(&current_char.to_string()) {
+                self.scan_keywords();
+            }
+        }
+
+        if let Some(last_token) = self.tokens.last_mut() {
+            last_token.comments.append(&mut self.comments);
+        }
+    }
+
 
     /// The `add_token` function appends a new token to the tokens list, using the given token type
     /// and an optional text. If the text is not provided, the function uses the tokenizer's
@@ -232,9 +258,29 @@ impl Tokenizer {
         }
     }
 
+    /// The `text` method returns a slice of the SQL string from the start to 
+    /// the current position.
+    fn get_text(&self) -> &str {
+        &self.sql[self.start..self.current]
+    }
+
     /////////////
     // EXTRACTING OPERATIONS
     /////////////
+
+    /// This function handles the logic of identifying the token type of the 
+    /// current character, without modifying the Tokenizer struct. We can use 
+    /// this new function in the scan function and pass the appropriate token 
+    /// type to the corresponding scan functions.
+    fn get_token_type_for_char(&self, ch: char) -> Option<String> {
+        if ch.is_digit(10) {
+            Some("Number".to_string())
+        } else if let Some(identifier_value) = self.identifiers.get(&ch.to_string()) {
+            Some(identifier_value.clone())
+        } else {
+            None
+        }
+    }
 
     /// This function extracts a string from the SQL string. It takes in a delimiter
     /// and returns a Result containing a string or an error. NOTE: IT MUST BEGIN
@@ -305,17 +351,109 @@ impl Tokenizer {
     ////////////
     
 
+    /// This function iterates through the characters in the input string to 
+    /// form the word, then it checks if the word is in the keywords HashMap or 
+    /// if the single character is in single_tokens. If it finds a match, it 
+    /// adds the corresponding token to the list of tokens and updates the 
+    /// position in the input string. If no keyword or single token is found, 
+    /// it calls scan_var() to continue the tokenization process.
+    fn scan_keywords(&mut self) -> bool {
+        let mut size = 0;
+        let mut word = None;
+        let mut chars = self.get_text().to_string();
+        let mut char = chars.clone();
+        let mut prev_space = false;
+        let mut skip = false;
+        let mut single_token = self.single_tokens.contains_key(&char);
+        
+        while !chars.is_empty() {
+            if skip {
+                size += 1;
+            } else {
+                if let Some(token_type) = self.keywords.get(&char.to_uppercase()) {
+                    word = Some(chars.clone());
+                } else {
+                    break;
+                }
+            }
+    
+            size += 1;
+            let end = self.current - 1 + size;
+    
+            if end < self.size {
+                char = self.sql.chars().nth(end).unwrap().to_string();
+                single_token = single_token || self.single_tokens.contains_key(&char);
+                let is_space = self.white_space.contains_key(&char);
+    
+                if !is_space || !prev_space {
+                    if is_space {
+                        char = " ".to_string();
+                    }
+                    chars.push_str(&char);
+                    prev_space = is_space;
+                    skip = false;
+                } else {
+                    skip = true;
+                }
+            } else {
+                chars = " ".to_string();
+            }
+        }
+    
+        word = if single_token || !self.white_space.contains_key(&chars.chars().last().unwrap().to_string()) {
+            None
+        } else {
+            word
+        };
+    
+        if let Some(w) = word {
+            if self.scan_string(&w) {
+                return true;
+            }
+            if self.scan_formatted_string(&w) {
+                return true;
+            }
+            if self.scan_comment(&w) {
+                return true;
+            }
+    
+            self.advance(size - 1);
+            let w = w.to_uppercase();
+            if let Some(token_type) = self.keywords.get(&w) {
+                self.add_token(token_type.clone(), Some(w));
+                return true;
+            }
+        } else {
+            if let Some(token_type) = self.single_tokens.get(&self.char.to_string()) {
+                self.add_token(token_type.clone(), Some(self.char.to_string()));
+                return true;
+            }
+            self.scan_var();
+            return true;
+        }
+    
+        false
+    }
+    
+
     /// This function scans comments in the SQL string. It detects comments
     /// and appends them to the appropriate lists (comments, prev_token_comments).
     fn scan_comment(&mut self, comment_start: &str) -> bool {
-        if !self.comments.contains(&comment_start.to_string()) {
+
+        if !self.comment_tokens.contains_key(comment_start) {
             return false;
         }
     
         let comment_start_line = self.line;
         let comment_start_size = comment_start.len();
-        let comment_end = self.comments.iter().find(|&c| c == comment_start).unwrap().clone();
-    
+        let comment_end = match self.comment_tokens.get(&comment_start.to_string()) {
+            Some(val) => val.clone().unwrap_or("".to_string()),
+            None => {
+                // Handle the case where comment_start is not found in comment_tokens
+                return false;
+            }
+        };
+
         if !comment_end.is_empty() {
             self.advance(comment_start_size);
             let comment_end_size = comment_end.len();
@@ -333,24 +471,23 @@ impl Tokenizer {
                 current_chars = self.chars(comment_end_size);
             }
 
-            self.sql_comments.push(self.get_text()[comment_start_size..self.current - comment_end_size + 1].to_string());
+            self.comments.push(self.get_text()[comment_start_size..self.current - comment_end_size + 1].to_string());
             self.advance(comment_end_size - 1);
         } else {
-            while !self.end && !self.white_space.contains_key(&self.peek.to_string()) {
+            while !self.end && !(self.white_space.get(&self.peek.to_string()) == Some(&TokenType::Break)) {
                 self.advance(1);
             }
-            self.sql_comments.push(self.get_text()[comment_start_size..].to_string());
+            self.comments.push(self.get_text()[comment_start_size..].to_string());
         }
     
         if comment_start_line == self.prev_token_line {
-            self.prev_token_comments.extend_from_slice(&self.sql_comments);
-            self.sql_comments.clear();
+            self.prev_token_comments.extend_from_slice(&self.comments);
+            self.comments.clear();
             self.prev_token_line = self.line;
         }
     
         true
     }
-
 
     /// This function takes a quote parameter and checks if it's a valid quote 
     /// start using _QUOTES. If it's not a valid quote, it returns False. Otherwise,
@@ -401,15 +538,10 @@ impl Tokenizer {
     
         let string_end = delimiters.get(string_start).cloned().unwrap_or_else(|| string_start.to_string());
         let string_start_len = string_start.len();
-        dbg!(&string_start_len);
 
         self.advance(string_start_len);
 
-        dbg!(&self);
-        dbg!(&string_end);
-
         let text = self.extract_string(&string_end).unwrap();
-        dbg!(&text);
 
         let final_text = if let Some(base) = base {
             match i64::from_str_radix(&text, base) {
@@ -433,16 +565,16 @@ impl Tokenizer {
     /// This function accepts an identifier_end parameter and processes the 
     /// input SQL accordingly. It builds an identifier token, handling 
     /// escape characters if needed, and adds it to the list of tokens.
-    fn scan_identifier(&mut self, identifier_end: &str) -> Result<(), String> {
+    fn scan_identifier(&mut self, identifier_end: &str) -> bool {
         let mut text = String::new();
         let identifier_end_is_escape = self.identifier_escapes.contains(&identifier_end.to_string());
     
         loop {
             if self.end {
-                return Err(format!(
+                panic!(
                     "Missing {} from {}:{}",
                     identifier_end, self.line, self.start
-                ));
+                );
             }
     
             self.advance(1);
@@ -461,8 +593,9 @@ impl Tokenizer {
         }
     
         self.add_token(TokenType::Identifier, Some(text));
-        Ok(())
+        true
     }
+    
     
 
     /// The `scan_var` function scans a variable, keyword, or parameter in the input SQL string.
@@ -497,7 +630,6 @@ impl Tokenizer {
     fn scan_hex(&mut self) -> bool {
         self.advance(1);
         let value = self.extract_value();
-        dbg!(&value);
     
         match i64::from_str_radix(&value, 16) {
             Ok(value) => {
@@ -572,8 +704,6 @@ impl Tokenizer {
                 }
                 c if c.is_alphanumeric() || c == '_' => {
                     let number_text = self.get_text().to_string();
-                    dbg!(&self.char);
-                    dbg!(&self.peek);
                     let mut literal = String::new();
                     while !self.peek.is_whitespace() && !self.single_tokens.contains_key(&self.peek.to_string()) {
                         literal.push(self.peek.to_uppercase().next().unwrap());
@@ -605,88 +735,6 @@ impl Tokenizer {
         true
     }
     
-
-
-    // fn scan_number(&mut self) -> bool {
-    //     if self.char == '0' {
-    //         let peek = self.peek.to_uppercase().to_string();
-    //         if peek == "B" {
-    //             return self.scan_bits();
-    //         } else if peek == "X" {
-    //             return self.scan_hex();
-    //         }
-    //     }
-    
-    //     let mut decimal = false;
-    //     let mut scientific = 0;
-    
-    //     while {
-    //         if self.peek.is_digit(10) {
-    //             self.advance(1);
-    //             true
-    //         } else if self.peek == '.' && !decimal {
-    //             decimal = true;
-    //             self.advance(1);
-    //             true
-    //         } else if (self.peek == '-' || self.peek == '+') && scientific == 1 {
-    //             scientific += 1;
-    //             self.advance(1);
-    //             true
-    //         } else if self.peek.to_uppercase().to_string() == "E" && scientific == 0 {
-    //             scientific += 1;
-    //             self.advance(1);
-    //             true
-    //         } else {
-    //             false
-    //         }
-    //     } {}
-    
-    //     dbg!(&self.char);
-    //     let number_text = self.get_text().to_string();
-    //     dbg!(&number_text);
-    //     let mut literal = String::new();
-    
-    //     while !self.peek.is_whitespace() && !self.single_tokens.contains_key(&self.peek.to_string()) {
-    //         literal.push(self.peek.to_uppercase().next().unwrap());
-    //         self.advance(1);
-    //     }
-    
-    //     let token_type = self.numeric_literals.get(&literal).and_then(|k| self.keywords.get(k).cloned());
-
-    //     dbg!(&literal);
-
-    //     if let Some(token_type) = token_type {
-    //         self.add_token(TokenType::Number, Some(number_text));
-    //         self.add_token(TokenType::DColon, Some("::".to_string()));
-    //         self.add_token(token_type.clone(), Some(literal));
-    //     } else if self.identifier_can_start_with_digit {
-    //         self.add_token(TokenType::Var, None);
-    //     } else {
-    //         self.add_token(TokenType::Number, Some(number_text));
-    //     }
-    
-    //     true
-    // }
-    
-
-    // fn delimeter_list_to_dict(
-    //     list: Vec<Either<String, (String, String)>>,
-    // ) -> HashMap<String, String> {
-    //     let mut dict = HashMap::new();
-    //     for item in list {
-    //         match item {
-    //             Either::Left(s) => {
-    //                 dict.insert(s.clone(), s);
-    //             }
-    //             Either::Right((k, v)) => {
-    //                 dict.insert(k, v);
-    //             }
-    //         }
-    //     }
-    //     dict
-    // }
-
-    // Add other required methods
 }
 
 
@@ -910,7 +958,7 @@ mod tests {
 
         tokenizer.advance(13);
 
-        tokenizer.scan_identifier(".").unwrap();
+        tokenizer.scan_identifier(".");
 
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::Identifier);
@@ -920,7 +968,7 @@ mod tests {
         assert_eq!(tokenizer.tokens[0].start, 15);
         assert_eq!(tokenizer.tokens[0].end, 23);
 
-        tokenizer.scan_identifier(".").unwrap();
+        tokenizer.scan_identifier(".");
 
         assert_eq!(tokenizer.tokens.len(), 2);
         assert_eq!(tokenizer.tokens[1].token_type, TokenType::Identifier);
@@ -959,34 +1007,34 @@ mod tests {
     // This implementation converts the formatted string to the appropriate type
     // and adds a token based on the extracted content. The unit test verifies 
     // the function for different formatted string types.
-    // #[test]
-    // fn test_scan_formatted_string() {
-    //     let mut tokenizer = Tokenizer::new();
-    //     tokenizer.bit_strings.insert("b".to_string(), "'".to_string());
-    //     tokenizer.byte_strings.insert("E".to_string(), "'".to_string());
-    //     tokenizer.hex_strings.insert("X".to_string(), "'".to_string());
+    #[test]
+    fn test_scan_formatted_string() {
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.bit_strings.insert("b".to_string(), "'".to_string());
+        tokenizer.byte_strings.insert("E".to_string(), "'".to_string());
+        tokenizer.hex_strings.insert("X".to_string(), "'".to_string());
 
-    //     tokenizer.add_sql("X'1A2B' b'1100' E'\\\\\\''".to_string());
+        tokenizer.tokenize("X'1A2B' b'1100' E'\\\\\\''");
 
-    //     assert!(tokenizer.scan_formatted_string("X"));
-    //     assert_eq!(tokenizer.tokens.len(), 1);
-    //     assert_eq!(tokenizer.tokens[0].token_type, TokenType::HexString);
-    //     assert_eq!(tokenizer.tokens[0].text, "6699");
+        // assert!(tokenizer.scan_formatted_string("X"));
+        // assert_eq!(tokenizer.tokens.len(), 1);
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::HexString);
+        assert_eq!(tokenizer.tokens[0].text, "6699");
 
-    //     tokenizer.advance(4);
+        tokenizer.advance(4);
 
-    //     assert!(tokenizer.scan_formatted_string("b"));
-    //     assert_eq!(tokenizer.tokens.len(), 2);
-    //     assert_eq!(tokenizer.tokens[1].token_type, TokenType::BitString);
-    //     assert_eq!(tokenizer.tokens[1].text, "12");
+        assert!(tokenizer.scan_formatted_string("b"));
+        assert_eq!(tokenizer.tokens.len(), 2);
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::BitString);
+        assert_eq!(tokenizer.tokens[1].text, "12");
 
-    //     tokenizer.advance(4);
+        tokenizer.advance(4);
 
-    //     assert!(tokenizer.scan_formatted_string("E"));
-    //     assert_eq!(tokenizer.tokens.len(), 3);
-    //     assert_eq!(tokenizer.tokens[2].token_type, TokenType::String);
-    //     assert_eq!(tokenizer.tokens[2].text, "\\\\\\'");
-    // }
+        assert!(tokenizer.scan_formatted_string("E"));
+        assert_eq!(tokenizer.tokens.len(), 3);
+        assert_eq!(tokenizer.tokens[2].token_type, TokenType::String);
+        assert_eq!(tokenizer.tokens[2].text, "\\\\\\'");
+    }
 
     /// This test checks whether the scan_hex function correctly identifies and 
     /// processes valid and invalid hex strings. The test adds a valid hex string 
@@ -997,7 +1045,6 @@ mod tests {
     fn test_scan_hex() {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("0x1A2B 0xInvalid".to_string());
-        dbg!(&tokenizer);
 
         tokenizer.scan_hex();
         assert_eq!(tokenizer.tokens.len(), 1);
@@ -1038,53 +1085,20 @@ mod tests {
     fn test_scan_number() {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("1234 56.78 9.0e+1 0xEFF 0b1011 12::integer".to_string());
-    
+        // tokenizer.scan();
+        dbg!(&tokenizer.tokens);
+
         assert!(tokenizer.scan_number());
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::Number);
         assert_eq!(tokenizer.tokens[0].text, "1234");
-    
-        // tokenizer.advance(1);
-    
-        // dbg!(&tokenizer);
-        // assert!(tokenizer.scan_number());
-        // // dbg!(&tokenizer);
-        // assert_eq!(tokenizer.tokens.len(), 2);
-        // assert_eq!(tokenizer.tokens[1].token_type, TokenType::Number);
-        // assert_eq!(tokenizer.tokens[1].text, "56.78");
-    
-        // tokenizer.advance(6);
-    
-        // assert!(tokenizer.scan_number());
-        // assert_eq!(tokenizer.tokens.len(), 3);
-        // assert_eq!(tokenizer.tokens[2].token_type, TokenType::Number);
-        // assert_eq!(tokenizer.tokens[2].text, "9.0e+1");
-    
-        // tokenizer.advance(6);
-    
-        // assert!(tokenizer.scan_number());
-        // assert_eq!(tokenizer.tokens.len(), 4);
-        // assert_eq!(tokenizer.tokens[3].token_type, TokenType::HexString);
-        // assert_eq!(tokenizer.tokens[3].text, "3839");
-    
-        // tokenizer.advance(5);
-    
-        // assert!(tokenizer.scan_number());
-        // assert_eq!(tokenizer.tokens.len(), 5);
-        // assert_eq!(tokenizer.tokens[4].token_type, TokenType::BitString);
-        // assert_eq!(tokenizer.tokens[4].text, "11");
-    
-        // tokenizer.advance(6);
-    
-        // assert!(tokenizer.scan_number());
-        // assert_eq!(tokenizer.tokens.len(), 7);
-        // assert_eq!(tokenizer.tokens[5].token_type, TokenType::Number);
-        // assert_eq!(tokenizer.tokens[5].text, "12");
-        // assert_eq!(tokenizer.tokens[6].token_type, TokenType::DColon);
-        // assert_eq!(tokenizer.tokens[7].token_type, TokenType::Int);
-        // assert_eq!(tokenizer.tokens[7].text, "integer");
+
     }
     
+
+    // THIS IS BROKEN BECAUSE START IS NOT UPDATING.
+    // COME CHECK AGAIN WHEN WE INTRODUCE SCAN.
+
     /// This test checks whether the scan_comment function can correctly identify 
     /// and process single line and multiline comments in the given SQL string.
     /// We first advance the tokenizer to the position where the comments are 
@@ -1097,7 +1111,8 @@ mod tests {
                    WHERE id = 42; /* This is a
                    multiline comment */";
         let mut tokenizer = Tokenizer::new();
-        tokenizer.add_sql(sql.to_string());
+        tokenizer.tokenize(sql);
+        dbg!(&tokenizer);
         
         // Check for single line comment
         tokenizer.advance(20);
@@ -1116,6 +1131,155 @@ mod tests {
         let is_comment = tokenizer.scan_comment(comment_start.as_str());
         assert!(is_comment);
         assert_eq!(tokenizer.prev_token_comments, vec!["This is a single line comment", "This is a\nmultiline comment"]);
+    }
+
+    #[test]
+    fn test_scan_keywords() {
+        let mut tokenizer: Tokenizer = Tokenizer::new();
+        tokenizer.tokenize("SELECT * FROM users WHERE age >= 18 AND is_active = 1;");
+
+        assert_eq!(tokenizer.tokens[0].token_type, TokenType::Select);
+        assert_eq!(tokenizer.tokens[0].text, "SELECT");
+
+        assert_eq!(tokenizer.tokens[1].token_type, TokenType::Star);
+        assert_eq!(tokenizer.tokens[1].text, "*");
+
+        assert_eq!(tokenizer.tokens[2].token_type, TokenType::From);
+        assert_eq!(tokenizer.tokens[2].text, "FROM");
+
+        assert_eq!(tokenizer.tokens[3].token_type, TokenType::Var);
+        assert_eq!(tokenizer.tokens[3].text, "users");
+
+        assert_eq!(tokenizer.tokens[4].token_type, TokenType::Where);
+        assert_eq!(tokenizer.tokens[4].text, "WHERE");
+
+        // ...continue testing the rest of the keywords in the input SQL
+    }
+
+    #[test]
+    fn test_scan() {
+        let sql = "SELECT * FROM users WHERE id = 42;";
+        let mut tokenizer = Tokenizer::new();
+        tokenizer.add_sql(sql.to_string());
+
+        tokenizer.scan();
+        assert_eq!(
+            tokenizer.tokens[0], 
+            Token {
+                token_type: TokenType::Select,
+                text: "SELECT".to_string(),
+                comments: Vec::new(),
+                line: 1,
+                col: 6,
+                start: 0,
+                end: 6,
+            }
+        );
+
+        assert_eq!(
+            tokenizer.tokens[1], 
+            Token {
+                token_type: TokenType::Star,
+                text: "*".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:8,
+                start:7,
+                end:8,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[2], 
+            Token {
+                token_type: TokenType::From,
+                text: "FROM".to_string(),
+                comments: Vec::new(),
+                line: 1,
+                col:13,
+                start:9,
+                end:13,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[3], 
+            Token {
+                token_type: TokenType::Var,
+                text: "users".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:19,
+                start:14,
+                end:19,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[4], 
+            Token {
+                token_type: TokenType::Where,
+                text: "WHERE".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:25,
+                start:20,
+                end:25,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[5], 
+            Token {
+                token_type: TokenType::Var,
+                text: "id".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:28,
+                start:26,
+                end:28,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[6], 
+            Token {
+                token_type: TokenType::Eq,
+                text: "=".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:30,
+                start:29,
+                end:30,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[7], 
+            Token {
+                token_type: TokenType::Number,
+                text: "42".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:33,
+                start:31,
+                end:33,
+            },
+        );
+
+        assert_eq!(
+            tokenizer.tokens[8], 
+            Token {
+                token_type: TokenType::Semicolon,
+                text: ";".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:34,
+                start:33,
+                end:34,
+            },
+        );
+
     }
 
 }
