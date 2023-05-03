@@ -179,7 +179,6 @@ dependencies = [
 name = "dbtranslate_two"
 version = "0.1.0"
 dependencies = [
- "either",
  "maplit",
  "serde",
  "serde_json",

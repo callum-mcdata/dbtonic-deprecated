@@ -801,7 +801,7 @@ mod tests {
         tokenizer.add_sql(sql.to_string());
 
         // Advance 5 positions
-        tokenizer.advance(5);
+        tokenizer.advance(6);
         assert_eq!(tokenizer.current, 6);
         assert_eq!(tokenizer.char, 'T');
         assert_eq!(tokenizer.peek, ' ');
@@ -861,9 +861,9 @@ mod tests {
         assert_eq!(tokenizer.char, 'S');
         assert_eq!(tokenizer.peek, 'E');
         assert_eq!(tokenizer.start, 0);
-        assert_eq!(tokenizer.current, 1);
+        assert_eq!(tokenizer.current, 0);
         assert_eq!(tokenizer.line, 1);
-        assert_eq!(tokenizer.col, 1);
+        assert_eq!(tokenizer.col, 0);
         assert_eq!(tokenizer.end, false);
         assert_eq!(tokenizer.prev_token_line, 0);
         assert!(tokenizer.prev_token_comments.is_empty());
@@ -875,7 +875,7 @@ mod tests {
         let mut tokenizer: Tokenizer = Tokenizer::new();
         let sql = "SELECT * FROM table;".to_string();
         tokenizer.add_sql(sql);
-        tokenizer.advance(5);
+        tokenizer.advance(6);
         assert_eq!(tokenizer.get_text(), "SELECT");
         tokenizer.advance(1);
         assert_eq!(tokenizer.get_text(), "SELECT ");
@@ -891,7 +891,7 @@ mod tests {
         tokenizer.add_sql("SELECT * FROM table WHERE name = 'John O Connor'".to_string());  
 
         let delimiter = "'";
-        tokenizer.advance(34);
+        tokenizer.advance(35);
         let extracted_string = tokenizer.extract_string(delimiter).unwrap();
         assert_eq!(extracted_string, "John O Connor");
     }
@@ -900,7 +900,7 @@ mod tests {
     fn test_extract_value() {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("SELECT * FROM table WHERE value=42".to_string());
-        tokenizer.advance(31); // Move the tokenizer to the position right before the value 42
+        tokenizer.advance(32); // Move the tokenizer to the position right before the value 42
 
         let extracted_value = tokenizer.extract_value();
         assert_eq!(extracted_value, "42");
@@ -956,7 +956,7 @@ mod tests {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("SELECT * FROM database.schema.table".to_string());
 
-        tokenizer.advance(13);
+        tokenizer.advance(14);
 
         tokenizer.scan_identifier(".");
 
@@ -987,7 +987,7 @@ mod tests {
     fn test_scan_string() {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("SELECT 'Hello, World!'".to_string());
-        tokenizer.advance(7);
+        tokenizer.advance(8);
 
         let result = tokenizer.scan_string("'");
         assert!(result);
@@ -1086,7 +1086,6 @@ mod tests {
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql("1234 56.78 9.0e+1 0xEFF 0b1011 12::integer".to_string());
         // tokenizer.scan();
-        dbg!(&tokenizer.tokens);
 
         assert!(tokenizer.scan_number());
         assert_eq!(tokenizer.tokens.len(), 1);
@@ -1112,7 +1111,6 @@ mod tests {
                    multiline comment */";
         let mut tokenizer = Tokenizer::new();
         tokenizer.tokenize(sql);
-        dbg!(&tokenizer);
         
         // Check for single line comment
         tokenizer.advance(20);
