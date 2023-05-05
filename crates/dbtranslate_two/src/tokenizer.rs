@@ -1165,7 +1165,6 @@ mod tests {
         tokenizer.add_sql(sql.to_string());
 
         tokenizer.scan();
-        dbg!(&tokenizer.tokens);
         assert_eq!(
             tokenizer.tokens[0], 
             Token {
