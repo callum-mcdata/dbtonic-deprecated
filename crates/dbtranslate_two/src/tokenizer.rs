@@ -383,11 +383,8 @@ impl Tokenizer {
             let end = self.current - 1 + size;
     
             if end < self.size {
-                dbg!(&chars);
                 char = self.sql.chars().nth(end).unwrap();
-                dbg!(&char);
                 single_token = single_token || self.single_tokens.contains_key(&char);
-                dbg!(&single_token);
                 let is_space = self.white_space.contains_key(&char);
     
                 if !is_space || !prev_space {
@@ -1168,7 +1165,7 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let sql = "SELECT";
+        let sql = "SELECT *";
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql(sql.to_string());
 
