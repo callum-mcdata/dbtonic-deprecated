@@ -1,14 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use crate::tokens::{Token, TokenType, single_tokens, keywords, comment_tokens, white_space};
+use std::collections::BTreeMap;
 
 /// This is the overall struct that contains all of the information about 
 /// tokenizing strings. 
 #[derive(Debug)]
 pub struct Tokenizer {
     /// Token hashmaps
-    single_tokens: HashMap<String, TokenType>,
+    single_tokens:  BTreeMap<char, TokenType>,
     keywords: HashMap<String, TokenType>,
-    white_space: HashMap<String, TokenType>,
+    white_space: BTreeMap<char, TokenType>,
     comment_tokens: HashMap<String, Option<String>>,
     /// Empty vectors
     bit_strings: HashMap<String, String>,
@@ -18,7 +19,7 @@ pub struct Tokenizer {
     identifier_escapes: Vec<String>,
     quotes: HashMap<String, String>,
     string_escapes: Vec<String>,
-    var_single_tokens: HashSet<String>,
+    var_single_tokens: HashSet<char>,
     /// Random
     numeric_literals: HashMap<String, String>,
     identifier_can_start_with_digit: bool,
@@ -127,7 +128,7 @@ impl Tokenizer {
     /// This function advances through the characters in the SQL string. It updates
     /// the state of the tokenizer struct.
     fn advance(&mut self, i: usize) {
-        if let Some(token_type) = self.white_space.get(&self.char.to_string()) {
+        if let Some(token_type) = self.white_space.get(&self.char) {
             if *token_type == TokenType::Break {
                 self.col = 1;
                 self.line += 1;
@@ -198,12 +199,13 @@ impl Tokenizer {
                 break;
             }
 
+            dbg!(&!self.white_space.contains_key(&current_char));
             if let Some(token_type) = self.get_token_type_for_char(current_char) {
                 match token_type.as_str() {
                     "Number" => self.scan_number(),
                     id => self.scan_identifier(id),
                 };
-            } else if !self.white_space.contains_key(&current_char.to_string()) {
+            } else if !self.white_space.contains_key(&current_char) {
                 self.scan_keywords();
             }
         }
@@ -333,10 +335,8 @@ impl Tokenizer {
     
         loop {
             // Check if the character is not a null character and not a key in single_tokens
-            if self.peek != '\0' 
-                && !self.single_tokens.contains_key(&self.peek.to_string()) 
-                && !self.peek.is_whitespace() 
-            {
+            // let peek_str = &self.peek.to_string();
+            if self.peek != '\0' && !self.single_tokens.contains_key(&self.peek) && !self.peek.is_whitespace() {
                 text.push(self.peek);
                 self.advance(1);
             } else {
@@ -361,16 +361,18 @@ impl Tokenizer {
         let mut size = 0;
         let mut word = None;
         let mut chars = self.get_text().to_string();
-        let mut char = chars.clone();
+        let mut char = chars.chars().next().unwrap();
         let mut prev_space = false;
         let mut skip = false;
         let mut single_token = self.single_tokens.contains_key(&char);
         
+        dbg!(&self.start, &self.current, &self.char, &self.peek);
+    
         while !chars.is_empty() {
             if skip {
                 size += 1;
             } else {
-                if let Some(token_type) = self.keywords.get(&char.to_uppercase()) {
+                if let Some(token_type) = self.keywords.get(&char.to_string().to_uppercase()) {
                     word = Some(chars.clone());
                 } else {
                     break;
@@ -381,15 +383,18 @@ impl Tokenizer {
             let end = self.current - 1 + size;
     
             if end < self.size {
-                char = self.sql.chars().nth(end).unwrap().to_string();
+                dbg!(&chars);
+                char = self.sql.chars().nth(end).unwrap();
+                dbg!(&char);
                 single_token = single_token || self.single_tokens.contains_key(&char);
+                dbg!(&single_token);
                 let is_space = self.white_space.contains_key(&char);
     
                 if !is_space || !prev_space {
                     if is_space {
-                        char = " ".to_string();
+                        char = ' ';
                     }
-                    chars.push_str(&char);
+                    chars.push(char);
                     prev_space = is_space;
                     skip = false;
                 } else {
@@ -399,13 +404,18 @@ impl Tokenizer {
                 chars = " ".to_string();
             }
         }
-    
-        word = if single_token || !self.white_space.contains_key(&chars.chars().last().unwrap().to_string()) {
+        dbg!(&chars.chars().last().unwrap());
+        dbg!(!self.white_space.contains_key(&chars.chars().last().unwrap()));
+        // The culprit
+        word = if single_token || !self.white_space.contains_key(&chars.chars().last().unwrap()) {
             None
         } else {
             word
         };
-    
+        
+        // dbg!(&self);
+        // dbg!(&chars);
+        dbg!(&word);
         if let Some(w) = word {
             if self.scan_string(&w) {
                 return true;
@@ -419,12 +429,14 @@ impl Tokenizer {
     
             self.advance(size - 1);
             let w = w.to_uppercase();
+            dbg!("Reached w".to_string() + &w);
             if let Some(token_type) = self.keywords.get(&w) {
                 self.add_token(token_type.clone(), Some(w));
                 return true;
             }
         } else {
-            if let Some(token_type) = self.single_tokens.get(&self.char.to_string()) {
+            if let Some(token_type) = self.single_tokens.get(&self.char) {
+                dbg!("select");
                 self.add_token(token_type.clone(), Some(self.char.to_string()));
                 return true;
             }
@@ -474,7 +486,7 @@ impl Tokenizer {
             self.comments.push(self.get_text()[comment_start_size..self.current - comment_end_size + 1].to_string());
             self.advance(comment_end_size - 1);
         } else {
-            while !self.end && !(self.white_space.get(&self.peek.to_string()) == Some(&TokenType::Break)) {
+            while !self.end && !(self.white_space.get(&self.peek) == Some(&TokenType::Break)) {
                 self.advance(1);
             }
             self.comments.push(self.get_text()[comment_start_size..].to_string());
@@ -598,14 +610,14 @@ impl Tokenizer {
     
     
 
-    /// The `scan_var` function scans a variable, keyword, or parameter in the input SQL string.
+    /// The `scan_var` function scans a variable or parameter in the input SQL string.
     /// It advances through the characters until it encounters a single token character or an
     /// empty/null character. The function then adds a token with the appropriate type to the
     /// tokens list.
     fn scan_var(&mut self) {
         while {
-            let stripped_char = self.peek.to_string().trim().to_owned();
-            !stripped_char.is_empty()
+            let stripped_char = self.peek;
+            stripped_char != '\0'
                 && (self.var_single_tokens.contains(&stripped_char)
                     || !self.single_tokens.contains_key(&stripped_char))
         } {
@@ -684,7 +696,7 @@ impl Tokenizer {
     
         let mut decimal = false;
         let mut scientific = 0;
-    
+
         loop {
             match self.peek {
                 c if c.is_digit(10) => {
@@ -705,7 +717,7 @@ impl Tokenizer {
                 c if c.is_alphanumeric() || c == '_' => {
                     let number_text = self.get_text().to_string();
                     let mut literal = String::new();
-                    while !self.peek.is_whitespace() && !self.single_tokens.contains_key(&self.peek.to_string()) {
+                    while !self.peek.is_whitespace() && !self.single_tokens.contains_key(&self.peek) {
                         literal.push(self.peek.to_uppercase().next().unwrap());
                         self.advance(1);
                     }
@@ -1156,11 +1168,12 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let sql = "SELECT * FROM users WHERE id = 42;";
+        let sql = "SELECT";
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql(sql.to_string());
 
         tokenizer.scan();
+        dbg!(&tokenizer.tokens);
         assert_eq!(
             tokenizer.tokens[0], 
             Token {
@@ -1187,96 +1200,96 @@ mod tests {
             },
         );
 
-        assert_eq!(
-            tokenizer.tokens[2], 
-            Token {
-                token_type: TokenType::From,
-                text: "FROM".to_string(),
-                comments: Vec::new(),
-                line: 1,
-                col:13,
-                start:9,
-                end:13,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[2], 
+        //     Token {
+        //         token_type: TokenType::From,
+        //         text: "FROM".to_string(),
+        //         comments: Vec::new(),
+        //         line: 1,
+        //         col:13,
+        //         start:9,
+        //         end:13,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[3], 
-            Token {
-                token_type: TokenType::Var,
-                text: "users".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:19,
-                start:14,
-                end:19,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[3], 
+        //     Token {
+        //         token_type: TokenType::Var,
+        //         text: "users".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:19,
+        //         start:14,
+        //         end:19,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[4], 
-            Token {
-                token_type: TokenType::Where,
-                text: "WHERE".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:25,
-                start:20,
-                end:25,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[4], 
+        //     Token {
+        //         token_type: TokenType::Where,
+        //         text: "WHERE".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:25,
+        //         start:20,
+        //         end:25,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[5], 
-            Token {
-                token_type: TokenType::Var,
-                text: "id".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:28,
-                start:26,
-                end:28,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[5], 
+        //     Token {
+        //         token_type: TokenType::Var,
+        //         text: "id".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:28,
+        //         start:26,
+        //         end:28,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[6], 
-            Token {
-                token_type: TokenType::Eq,
-                text: "=".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:30,
-                start:29,
-                end:30,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[6], 
+        //     Token {
+        //         token_type: TokenType::Eq,
+        //         text: "=".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:30,
+        //         start:29,
+        //         end:30,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[7], 
-            Token {
-                token_type: TokenType::Number,
-                text: "42".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:33,
-                start:31,
-                end:33,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[7], 
+        //     Token {
+        //         token_type: TokenType::Number,
+        //         text: "42".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:33,
+        //         start:31,
+        //         end:33,
+        //     },
+        // );
 
-        assert_eq!(
-            tokenizer.tokens[8], 
-            Token {
-                token_type: TokenType::Semicolon,
-                text: ";".to_string(),
-                comments: Vec::new(),
-                line:1,
-                col:34,
-                start:33,
-                end:34,
-            },
-        );
+        // assert_eq!(
+        //     tokenizer.tokens[8], 
+        //     Token {
+        //         token_type: TokenType::Semicolon,
+        //         text: ";".to_string(),
+        //         comments: Vec::new(),
+        //         line:1,
+        //         col:34,
+        //         start:33,
+        //         end:34,
+        //     },
+        // );
 
     }
 

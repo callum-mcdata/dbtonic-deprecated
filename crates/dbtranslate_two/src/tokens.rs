@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 use std::collections::{HashMap, HashSet};
+use std::collections::BTreeMap;
+
 
 /// This is an enum that contains all of the different token types in dbtranslate.
 /// Each token type represents a different type of token that can be parsed.
@@ -455,38 +457,38 @@ impl Display for Token {
 /// This function creates a hashmap of all the single tokens in the dbtranslate
 /// It maps the single token to the TokenType. This is then used in the Tokenizer
 /// to determine the TokenType.
-pub fn single_tokens() -> HashMap<String, TokenType> {
-    let single_tokens = maplit::hashmap! {
-        "(".to_string() => TokenType::LParen,
-        ")".to_string() => TokenType::RParen,
-        "[".to_string() => TokenType::LBracket,
-        "]".to_string() => TokenType::RBracket,
-        "{".to_string() => TokenType::LBrace,
-        "}".to_string() => TokenType::RBrace,
-        "&".to_string() => TokenType::Amp,
-        "^".to_string() => TokenType::Caret,
-        ":".to_string() => TokenType::Colon,
-        ",".to_string() => TokenType::Comma,
-        ".".to_string() => TokenType::Dot,
-        "-".to_string() => TokenType::Dash,
-        "=".to_string() => TokenType::Eq,
-        ">".to_string() => TokenType::Gt,
-        "<".to_string() => TokenType::Lt,
-        "%".to_string() => TokenType::Mod,
-        "!".to_string() => TokenType::Not,
-        "|".to_string() => TokenType::Pipe,
-        "+".to_string() => TokenType::Plus,
-        ";".to_string() => TokenType::Semicolon,
-        "/".to_string() => TokenType::Slash,
-        "\\".to_string() => TokenType::Backslash,
-        "*".to_string() => TokenType::Star,
-        "~".to_string() => TokenType::Tilda,
-        "?".to_string() => TokenType::Placeholder,
-        "@".to_string() => TokenType::Parameter,
-        "'".to_string() => TokenType::Quote,
-        "`".to_string() => TokenType::Identifier,
-        "\"".to_string() => TokenType::Identifier,
-        "#".to_string() => TokenType::Hash,
+pub fn single_tokens() -> BTreeMap<char, TokenType> {
+    let single_tokens = maplit::btreemap! {
+        '(' => TokenType::LParen,
+        ')' => TokenType::RParen,
+        '[' => TokenType::LBracket,
+        ']' => TokenType::RBracket,
+        '{' => TokenType::LBrace,
+        '}' => TokenType::RBrace,
+        '&' => TokenType::Amp,
+        '^' => TokenType::Caret,
+        ':' => TokenType::Colon,
+        ',' => TokenType::Comma,
+        '.' => TokenType::Dot,
+        '-' => TokenType::Dash,
+        '=' => TokenType::Eq,
+        '>' => TokenType::Gt,
+        '<' => TokenType::Lt,
+        '%' => TokenType::Mod,
+        '!' => TokenType::Not,
+        '|' => TokenType::Pipe,
+        '+' => TokenType::Plus,
+        ';' => TokenType::Semicolon,
+        '/' => TokenType::Slash,
+        '\\' => TokenType::Backslash,
+        '*' => TokenType::Star,
+        '~' => TokenType::Tilda,
+        '?' => TokenType::Placeholder,
+        '@' => TokenType::Parameter,
+        '\'' => TokenType::Quote,
+        '`' => TokenType::Identifier,
+        '\"' => TokenType::Identifier,
+        '#' => TokenType::Hash,
     };
 
     single_tokens
@@ -773,16 +775,13 @@ pub fn keywords() -> HashMap<String, TokenType> {
 /// This function creates a hashmap of all the white space tokens in dbtranslate
 /// It maps the white space to the TokenType. This is then used in the Tokenizer
 /// to determine the TokenType.
-pub fn white_space() -> HashMap<String, TokenType> {
-
-    let white_space = maplit::hashmap! {
-        " ".to_string() => TokenType::Space,
-        "\t".to_string() => TokenType::Space,
-        "\n".to_string() => TokenType::Break,
-        "\r".to_string() => TokenType::Break,
-        "\r\n".to_string() => TokenType::Break,
+pub fn white_space() -> BTreeMap<char, TokenType> {
+    let white_space = maplit::btreemap! {
+        ' ' => TokenType::Space,
+        '\t' => TokenType::Space,
+        '\n' => TokenType::Break,
+        '\r' => TokenType::Break,
     };
-
     white_space
 }
 
