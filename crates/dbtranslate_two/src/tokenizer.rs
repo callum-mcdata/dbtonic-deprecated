@@ -199,7 +199,6 @@ impl Tokenizer {
                 break;
             }
 
-            dbg!(&!self.white_space.contains_key(&current_char));
             if let Some(token_type) = self.get_token_type_for_char(current_char) {
                 match token_type.as_str() {
                     "Number" => self.scan_number(),
@@ -366,7 +365,6 @@ impl Tokenizer {
         let mut skip = false;
         let mut single_token = self.single_tokens.contains_key(&char);
         
-        dbg!(&self.start, &self.current, &self.char, &self.peek);
     
         while !chars.is_empty() {
             if skip {
@@ -374,7 +372,7 @@ impl Tokenizer {
             } else {
                 if let Some(token_type) = self.keywords.get(&char.to_string().to_uppercase()) {
                     word = Some(chars.clone());
-                } else {
+                } else if !skip {
                     break;
                 }
             }
@@ -401,18 +399,13 @@ impl Tokenizer {
                 chars = " ".to_string();
             }
         }
-        dbg!(&chars.chars().last().unwrap());
-        dbg!(!self.white_space.contains_key(&chars.chars().last().unwrap()));
-        // The culprit
+
         word = if single_token || !self.white_space.contains_key(&chars.chars().last().unwrap()) {
             None
         } else {
             word
         };
         
-        // dbg!(&self);
-        // dbg!(&chars);
-        dbg!(&word);
         if let Some(w) = word {
             if self.scan_string(&w) {
                 return true;
@@ -426,14 +419,12 @@ impl Tokenizer {
     
             self.advance(size - 1);
             let w = w.to_uppercase();
-            dbg!("Reached w".to_string() + &w);
             if let Some(token_type) = self.keywords.get(&w) {
                 self.add_token(token_type.clone(), Some(w));
                 return true;
             }
         } else {
             if let Some(token_type) = self.single_tokens.get(&self.char) {
-                dbg!("select");
                 self.add_token(token_type.clone(), Some(self.char.to_string()));
                 return true;
             }
@@ -607,7 +598,7 @@ impl Tokenizer {
     
     
 
-    /// The `scan_var` function scans a variable or parameter in the input SQL string.
+    /// The `scan_var` function scans a variable, keyword, or parameter in the input SQL string.
     /// It advances through the characters until it encounters a single token character or an
     /// empty/null character. The function then adds a token with the appropriate type to the
     /// tokens list.
@@ -615,16 +606,20 @@ impl Tokenizer {
         while {
             let stripped_char = self.peek;
             stripped_char != '\0'
+                && !self.white_space.contains_key(&stripped_char)
                 && (self.var_single_tokens.contains(&stripped_char)
-                    || !self.single_tokens.contains_key(&stripped_char))
-        } {
+                || !self.single_tokens.contains_key(&stripped_char))
+            } {
             self.advance(1);
         }
+
+        dbg!(&self.start, &self.current, &self.end, &self.get_text());
 
         let token_type = if self.prev_token_type == Some(TokenType::Parameter) {
             TokenType::Var
         } else {
             let text_upper = self.get_text().to_uppercase();
+            dbg!(&text_upper);
             self.keywords.get(&text_upper).cloned().unwrap_or(TokenType::Var)
         };
 
@@ -1165,7 +1160,7 @@ mod tests {
 
     #[test]
     fn test_scan() {
-        let sql = "SELECT *";
+        let sql = "SELECT * FROM users WHERE id = 42;";
         let mut tokenizer = Tokenizer::new();
         tokenizer.add_sql(sql.to_string());
 
@@ -1197,96 +1192,96 @@ mod tests {
             },
         );
 
-        // assert_eq!(
-        //     tokenizer.tokens[2], 
-        //     Token {
-        //         token_type: TokenType::From,
-        //         text: "FROM".to_string(),
-        //         comments: Vec::new(),
-        //         line: 1,
-        //         col:13,
-        //         start:9,
-        //         end:13,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[2], 
+            Token {
+                token_type: TokenType::From,
+                text: "FROM".to_string(),
+                comments: Vec::new(),
+                line: 1,
+                col:13,
+                start:9,
+                end:13,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[3], 
-        //     Token {
-        //         token_type: TokenType::Var,
-        //         text: "users".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:19,
-        //         start:14,
-        //         end:19,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[3], 
+            Token {
+                token_type: TokenType::Var,
+                text: "users".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:19,
+                start:14,
+                end:19,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[4], 
-        //     Token {
-        //         token_type: TokenType::Where,
-        //         text: "WHERE".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:25,
-        //         start:20,
-        //         end:25,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[4], 
+            Token {
+                token_type: TokenType::Where,
+                text: "WHERE".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:25,
+                start:20,
+                end:25,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[5], 
-        //     Token {
-        //         token_type: TokenType::Var,
-        //         text: "id".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:28,
-        //         start:26,
-        //         end:28,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[5], 
+            Token {
+                token_type: TokenType::Var,
+                text: "id".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:28,
+                start:26,
+                end:28,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[6], 
-        //     Token {
-        //         token_type: TokenType::Eq,
-        //         text: "=".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:30,
-        //         start:29,
-        //         end:30,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[6], 
+            Token {
+                token_type: TokenType::Eq,
+                text: "=".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:30,
+                start:29,
+                end:30,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[7], 
-        //     Token {
-        //         token_type: TokenType::Number,
-        //         text: "42".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:33,
-        //         start:31,
-        //         end:33,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[7], 
+            Token {
+                token_type: TokenType::Number,
+                text: "42".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:33,
+                start:31,
+                end:33,
+            },
+        );
 
-        // assert_eq!(
-        //     tokenizer.tokens[8], 
-        //     Token {
-        //         token_type: TokenType::Semicolon,
-        //         text: ";".to_string(),
-        //         comments: Vec::new(),
-        //         line:1,
-        //         col:34,
-        //         start:33,
-        //         end:34,
-        //     },
-        // );
+        assert_eq!(
+            tokenizer.tokens[8], 
+            Token {
+                token_type: TokenType::Semicolon,
+                text: ";".to_string(),
+                comments: Vec::new(),
+                line:1,
+                col:34,
+                start:33,
+                end:34,
+            },
+        );
 
     }
 
