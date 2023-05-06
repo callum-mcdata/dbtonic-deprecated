@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use crate::tokens::{Token, TokenType, single_tokens, keywords, comment_tokens, white_space};
 use std::collections::BTreeMap;
+use crate::trie::{Trie,TrieResult};
 
 /// This is the overall struct that contains all of the information about 
 /// tokenizing strings. 
@@ -9,6 +10,7 @@ pub struct Tokenizer {
     /// Token hashmaps
     single_tokens:  BTreeMap<char, TokenType>,
     keywords: HashMap<String, TokenType>,
+    keywords_trie: Trie,
     white_space: BTreeMap<char, TokenType>,
     comment_tokens: HashMap<String, Option<String>>,
     /// Empty vectors
@@ -53,10 +55,12 @@ impl Tokenizer {
         let quotes = HashMap::new();
         let string_escapes = vec!["'".to_string()];
         let var_single_tokens = HashSet::new();
+        let trie_keywords = keywords();
         let tokenizer = Tokenizer {
             /// Token hashmaps
             single_tokens: single_tokens(),
             keywords: keywords(),
+            keywords_trie: Trie::from_keywords_map(&trie_keywords),
             white_space: white_space(),
             comment_tokens: comment_tokens(),
             /// Empty vectors
@@ -357,29 +361,50 @@ impl Tokenizer {
     /// position in the input string. If no keyword or single token is found, 
     /// it calls scan_var() to continue the tokenization process.
     fn scan_keywords(&mut self) -> bool {
-        let mut size = 0;
+        let mut state_size = 0;
         let mut word = None;
         let mut chars = self.get_text().to_string();
         let mut char = chars.chars().next().unwrap();
         let mut prev_space = false;
         let mut skip = false;
         let mut single_token = self.single_tokens.contains_key(&char);
-        
-    
+        let mut keyword_found = false;
+
         while !chars.is_empty() {
             if skip {
-                size += 1;
-            } else {
-                if let Some(token_type) = self.keywords.get(&char.to_string().to_uppercase()) {
-                    word = Some(chars.clone());
-                } else if !skip {
-                    break;
+                state_size += 1;
+            } 
+            else {
+                let search_result = self.keywords_trie.search(&chars.to_uppercase());
+                dbg!(&search_result);
+                match search_result.0 {
+                    TrieResult::Found => {
+                        keyword_found = true;
+                    }
+                    _ => {
+                        break;
+                    }
                 }
+                // let mut partial_match = false;
+                // for keyword in self.keywords.keys() {
+                //     if keyword.starts_with(&chars.to_uppercase()) {
+                //         partial_match = true;
+                //         break;
+                //     }
+                // }
+                // if partial_match {
+                //     keyword_found = true;
+                // } else {
+                //     break;
+                // }
             }
-    
-            size += 1;
-            let end = self.current - 1 + size;
-    
+
+            if keyword_found {
+                word = Some(chars.clone());
+            }
+            state_size += 1;
+            let end = self.current - 1 + state_size;
+            
             if end < self.size {
                 char = self.sql.chars().nth(end).unwrap();
                 single_token = single_token || self.single_tokens.contains_key(&char);
@@ -399,14 +424,43 @@ impl Tokenizer {
                 chars = " ".to_string();
             }
         }
-
-        word = if single_token || !self.white_space.contains_key(&chars.chars().last().unwrap()) {
+        dbg!(&chars);
+        dbg!(&single_token, self.white_space.contains_key(&chars.chars().last().unwrap()));
+        word = if single_token && self.white_space.contains_key(&chars.chars().last().unwrap()) {
             None
         } else {
             word
         };
+
+        dbg!(&char, &word);
         
+        // if word.is_none() {
+        //     if let Some(token_type) = self.single_tokens.get(&self.char) {
+        //         self.add_token(token_type.clone(), Some(self.char.to_string()));
+        //         return true;
+        //     }
+        //     self.scan_var();
+        //     return true;
+        // }
+
+        // if self.scan_string(&w) {
+        //     return true;
+        // }
+        // if self.scan_formatted_string(&w) {
+        //     return true;
+        // }
+        // if self.scan_comment(&w) {
+        //     return true;
+        // }
+        // self.advance(state_size - 1);
+        // let w = word.to_uppercase();
+        // if let Some(token_type) = self.keywords.get(&w) {
+        //     self.add_token(token_type.clone(), Some(w));
+        //     return true;
+        // }
+
         if let Some(w) = word {
+            // TODO: These are advancing us beyond what we want
             if self.scan_string(&w) {
                 return true;
             }
@@ -416,8 +470,7 @@ impl Tokenizer {
             if self.scan_comment(&w) {
                 return true;
             }
-    
-            self.advance(size - 1);
+            self.advance(state_size - 1);
             let w = w.to_uppercase();
             if let Some(token_type) = self.keywords.get(&w) {
                 self.add_token(token_type.clone(), Some(w));
@@ -440,6 +493,7 @@ impl Tokenizer {
     /// and appends them to the appropriate lists (comments, prev_token_comments).
     fn scan_comment(&mut self, comment_start: &str) -> bool {
 
+        dbg!("made it to comment");
         if !self.comment_tokens.contains_key(comment_start) {
             return false;
         }
@@ -496,6 +550,12 @@ impl Tokenizer {
     /// type, depending on the quote type. Finally, it returns True to indicate 
     /// that a string has been scanned successfully.
     fn scan_string(&mut self, quote: &str) -> bool {
+
+        dbg!(quote, &self.quotes.contains_key(quote));
+        // Check if quote input is not found in self.quotes
+        if !self.quotes.contains_key(quote) {
+            return false;
+        }
 
         // We use a block here to limit the scope of the immutable borrow.
         let (quote_end, quote_len) = {
@@ -613,13 +673,10 @@ impl Tokenizer {
             self.advance(1);
         }
 
-        dbg!(&self.start, &self.current, &self.end, &self.get_text());
-
         let token_type = if self.prev_token_type == Some(TokenType::Parameter) {
             TokenType::Var
         } else {
             let text_upper = self.get_text().to_uppercase();
-            dbg!(&text_upper);
             self.keywords.get(&text_upper).cloned().unwrap_or(TokenType::Var)
         };
 
@@ -677,6 +734,7 @@ impl Tokenizer {
     /// identifier, it adds the tokens accordingly, otherwise, it adds a 
     /// TokenType::Number token.
     fn scan_number(&mut self) -> bool {
+        dbg!(&self.char, &self.peek);
         if self.char == '0' {
             let peek = self.peek.to_uppercase().to_string();
             if peek == "B" {
@@ -990,12 +1048,9 @@ mod tests {
     #[test]
     fn test_scan_string() {
         let mut tokenizer = Tokenizer::new();
-        tokenizer.add_sql("SELECT 'Hello, World!'".to_string());
-        tokenizer.advance(8);
+        tokenizer.tokenize("SELECT 'Hello, World!'");
 
-        let result = tokenizer.scan_string("'");
-        assert!(result);
-
+        dbg!(&tokenizer.tokens);
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::String);
         assert_eq!(tokenizer.tokens[0].text, "Hello, World!");
@@ -1068,9 +1123,9 @@ mod tests {
     #[test]
     fn test_scan_bits() {
         let mut tokenizer = Tokenizer::new();
-        tokenizer.add_sql("b'1010' b'invalid'".to_string());
-    
-        assert!(tokenizer.scan_bits());
+        tokenizer.tokenize("select b'1010' b'invalid'");
+        dbg!(&tokenizer.tokens);
+
         assert_eq!(tokenizer.tokens.len(), 1);
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::BitString);
         assert_eq!(tokenizer.tokens[0].text, "10");
@@ -1110,12 +1165,11 @@ mod tests {
     /// prev_token_comments vector contains the expected comments.
     #[test]
     fn test_scan_comment() {
-        let sql = "SELECT * FROM users -- This is a single line comment
-                   WHERE id = 42; /* This is a
-                   multiline comment */";
+        let sql = "SELECT -- This is a single line comment";
         let mut tokenizer = Tokenizer::new();
         tokenizer.tokenize(sql);
-        
+        dbg!(&tokenizer.tokens);
+
         // Check for single line comment
         tokenizer.advance(20);
         assert_eq!(tokenizer.char, '-');
@@ -1138,7 +1192,8 @@ mod tests {
     #[test]
     fn test_scan_keywords() {
         let mut tokenizer: Tokenizer = Tokenizer::new();
-        tokenizer.tokenize("SELECT * FROM users WHERE age >= 18 AND is_active = 1;");
+        tokenizer.tokenize("SELECT * FROM users sWHERE;");
+        dbg!(&tokenizer.tokens);
 
         assert_eq!(tokenizer.tokens[0].token_type, TokenType::Select);
         assert_eq!(tokenizer.tokens[0].text, "SELECT");

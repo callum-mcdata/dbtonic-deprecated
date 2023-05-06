@@ -501,7 +501,11 @@ pub fn single_tokens() -> BTreeMap<char, TokenType> {
 pub fn keywords() -> HashMap<String, TokenType> {
     let keywords = maplit::hashmap! {
         "{{+".to_string() => TokenType::BlockStart,
+        "{%".to_string() => TokenType::BlockStart,
+        "{%-".to_string() => TokenType::BlockStart,
         "{{-".to_string() => TokenType::BlockStart,
+        "-%}".to_string() => TokenType::BlockEnd,
+        "%}".to_string() => TokenType::BlockEnd,
         "+}}".to_string() => TokenType::BlockEnd,
         "-}}".to_string() => TokenType::BlockEnd,
         "/*+".to_string() => TokenType::Hint,
