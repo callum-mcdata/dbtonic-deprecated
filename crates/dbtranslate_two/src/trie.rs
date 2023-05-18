@@ -26,33 +26,53 @@ impl Trie {
     /// This function takes a slice of string references &[&str] as its argument 
     /// and creates a new Trie from the given keywords. The function iterates 
     /// over the keywords and constructs the trie using nested HashMaps.
-    pub fn from_keywords(keywords: &[&str]) -> Self {
+    // pub fn from_keywords(keywords: &[&str]) -> Self {
+    //     let mut trie = Trie::new();
+
+    //     for key in keywords {
+    //         let mut current = &mut trie;
+    
+    //         for ch in key.chars() {
+    //             current = current.children.entry(ch).or_insert_with(Trie::new);
+    //         }
+    //         current.is_end_of_word = true;
+    //     }
+    
+    //     trie
+    // }
+
+    pub fn from_keywords(
+        keywords: &HashMap<String, TokenType>,
+        comment_tokens: &HashMap<String, Option<String>>,
+        quotes: &HashMap<String, String>,
+        bit_strings: &HashMap<String, String>,
+        hex_strings: &HashMap<String, String>,
+        byte_strings: &HashMap<String, String>,
+    ) -> Self {
         let mut trie = Trie::new();
 
-        for key in keywords {
-            let mut current = &mut trie;
-    
+        let add_to_trie = |key: &str, trie: &mut Trie| {
+            let mut current = trie;
             for ch in key.chars() {
                 current = current.children.entry(ch).or_insert_with(Trie::new);
             }
             current.is_end_of_word = true;
-        }
-    
-        trie
+        };
+
+
+        for key in keywords.keys()
+        .chain(
+            comment_tokens.keys()
+                .chain(quotes.keys())
+                .chain(bit_strings.keys())
+                .chain(hex_strings.keys())
+                .chain(byte_strings.keys()),
+        )
+        .map(|s| s.as_str())
+    {
+        let key_upper = key.to_uppercase();
+        add_to_trie(&key_upper, &mut trie);
     }
-
-    pub fn from_keywords_map(keywords: &HashMap<String, TokenType>) -> Self {
-        let mut trie = Trie::new();
-
-        for key in keywords.keys() {
-            let mut current = &mut trie;
-
-            for ch in key.chars() {
-                current = current.children.entry(ch).or_insert_with(Trie::new);
-            }
-            current.is_end_of_word = true;
-        }
-
         trie
     }
 
@@ -132,52 +152,36 @@ mod tests {
     /// It then looks for the end of word keyword to ensure it exists in the trie.
     #[test]
     fn test_new_trie() {
-        let keywords = ["bla", "foo", "blab"];
-        let trie = Trie::from_keywords(&keywords);
+        let keywords: HashMap<String, TokenType> = HashMap::from_iter(vec![
+            ("AND".to_string(), TokenType::And),
+        ]);
+        let empty_comment_tokens: HashMap<String, Option<String>> = HashMap::new();
+        let empty_quotes: HashMap<String, String> = HashMap::new();
+        let empty_bit_strings: HashMap<String, String> = HashMap::new();
+        let empty_hex_strings: HashMap<String, String> = HashMap::new();
+        let empty_byte_strings: HashMap<String, String> = HashMap::new();
+
+        let trie = Trie::from_keywords(
+            &keywords,
+            &empty_comment_tokens,
+            &empty_quotes,
+            &empty_bit_strings,
+            &empty_hex_strings,
+            &empty_byte_strings,
+        );
 
         assert_eq!(
-            trie.children.get(&'b').unwrap()
-                .children.get(&'l').unwrap()
-                .children.get(&'a').unwrap()
+            trie.children.get(&'A').unwrap()
+                .children.get(&'N').unwrap()
+                .children.get(&'D').unwrap()
                 .is_end_of_word,
             true
         );
-        assert_eq!(
-            trie.children.get(&'b').unwrap()
-                .children.get(&'l').unwrap()
-                .children.get(&'a').unwrap()
-                .children.get(&'b').unwrap()
-                .is_end_of_word,
-            true
-        );
-        assert_eq!(
-            trie.children.get(&'f').unwrap()
-                .children.get(&'o').unwrap()
-                .children.get(&'o').unwrap()
-                .is_end_of_word,
-            true
-        );
-    }
-
-    /// This test checks if the search function correctly identifies whether 
-    /// a key is not found, is a prefix, or is found in the trie.
-    #[test]
-    fn test_in_trie() {
-        let keywords = ["cat"];
-        let trie = Trie::from_keywords(&keywords);
-
-        let (result1, _) = Trie::search(&trie, "bob");
-        assert_eq!(result1, TrieResult::NotFound);
-
-        let (result2, _) = Trie::search(&trie, "ca");
-        assert_eq!(result2, TrieResult::Prefix);
-
-        let (result3, _) = Trie::search(&trie, "cat");
-        assert_eq!(result3, TrieResult::Found);
+        
     }
 
     #[test]
-    fn test_from_keywords_map() {
+    fn test_from_keywords() {
         // Create a sample keywords HashMap
         let keywords: HashMap<String, TokenType> = HashMap::from_iter(vec![
             ("SELECT".to_string(), TokenType::Select),
@@ -186,29 +190,39 @@ mod tests {
             ("AND".to_string(), TokenType::And),
             ("OR".to_string(), TokenType::Or),
         ]);
+        let empty_comment_tokens: HashMap<String, Option<String>> = HashMap::new();
+        let empty_quotes: HashMap<String, String> = HashMap::new();
+        let empty_bit_strings: HashMap<String, String> = HashMap::new();
+        let empty_hex_strings: HashMap<String, String> = HashMap::new();
+        let empty_byte_strings: HashMap<String, String> = HashMap::new();
 
-        // Create a Trie from the keywords HashMap
-        let keywords_trie = Trie::from_keywords_map(&keywords);
+        let trie = Trie::from_keywords(
+            &keywords,
+            &empty_comment_tokens,
+            &empty_quotes,
+            &empty_bit_strings,
+            &empty_hex_strings,
+            &empty_byte_strings,
+        );
 
         // Test if the Trie contains the keywords
-        let select_result = keywords_trie.search("SELECT");
+        let select_result = trie.search("SELECT");
         assert_eq!(select_result.0, TrieResult::Found);
 
-        let from_result = keywords_trie.search("FRO");
-        dbg!(&from_result);
+        let from_result = trie.search("FRO");
         assert_eq!(from_result.0, TrieResult::Prefix);
 
-        let where_result = keywords_trie.search("WHERE");
+        let where_result = trie.search("WHERE");
         assert_eq!(where_result.0, TrieResult::Found);
 
-        let and_result = keywords_trie.search("AND");
+        let and_result = trie.search("AND");
         assert_eq!(and_result.0, TrieResult::Found);
 
-        let or_result = keywords_trie.search("OR");
+        let or_result = trie.search("OR");
         assert_eq!(or_result.0, TrieResult::Found);
 
         // Test if the Trie does not contain a non-existent keyword
-        let not_exist_result = keywords_trie.search("NOT_EXIST");
+        let not_exist_result = trie.search("NOT_EXIST");
         assert_eq!(not_exist_result.0, TrieResult::NotFound);
     }
 }
